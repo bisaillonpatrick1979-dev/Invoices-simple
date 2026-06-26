@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Building2, FileText, Users, Settings, Plus, Trash2, Eye, Send, Mail, MessageSquare, Printer, Save, PenLine } from 'lucide-react'
+import { FileText, Users, Settings, Plus, Trash2, Eye, Mail, MessageSquare, Printer, Save, PenLine } from 'lucide-react'
 import './styles.css'
 
 const GST_RATE = 0.05
@@ -75,10 +75,10 @@ function App() {
     setInvoice(inv => ({ ...inv, clientId: c.id, client: c }))
   }
 
-  const saveInvoice = () => {
+  const saveInvoice = ({ silent = false } = {}) => {
     const stored = { ...invoice, updatedAt: new Date().toISOString(), total: totals.total }
     setInvoices(list => list.some(x => x.id === stored.id) ? list.map(x => x.id === stored.id ? stored : x) : [stored, ...list])
-    alert('Invoice sauvegardée.')
+    if (!silent) alert('Invoice sauvegardée.')
   }
 
   const newInvoice = () => {
@@ -112,7 +112,7 @@ function App() {
       </nav>
 
       <main className="content no-print">
-        {tab === 'invoice' && <InvoiceEditor invoice={invoice} setInvoice={setInvoice} clients={clients} selectClient={selectClient} setLine={setLine} totals={totals} saveClientFromInvoice={saveClientFromInvoice} saveInvoice={saveInvoice} newInvoice={newInvoice} setShowPreview={setShowPreview}/>} 
+        {tab === 'invoice' && <InvoiceEditor company={company} invoice={invoice} setInvoice={setInvoice} clients={clients} selectClient={selectClient} setLine={setLine} totals={totals} saveClientFromInvoice={saveClientFromInvoice} saveInvoice={saveInvoice} newInvoice={newInvoice} setShowPreview={setShowPreview}/>} 
         {tab === 'clients' && <Clients clients={clients} setClients={setClients} selectClient={selectClient}/>} 
         {tab === 'history' && <History invoices={invoices} loadInvoice={loadInvoice}/>} 
         {tab === 'settings' && <SettingsPanel company={company} setCompany={setCompany}/>} 
@@ -132,11 +132,49 @@ function calcTotals(inv) {
   return { subtotal, discount, taxable, gst, total: taxable + gst }
 }
 
+function buildEmailLink(company, invoice, totals) {
+  const subject = encodeURIComponent(`${invoice.number} - ${company.name}`)
+  const lineText = invoice.lines
+    .filter(l => l.description || l.qty || l.price)
+    .map(l => `- ${l.description || 'Item'} | Qty: ${l.qty || 0} ${l.unit || ''} | Prix: ${money(l.price)} | Total: ${money(Number(l.qty || 0) * Number(l.price || 0))}`)
+    .join('\n')
+
+  const body = encodeURIComponent(
+`Bonjour ${invoice.client.name || ''},
+
+Voici les détails de votre invoice ${invoice.number}.
+
+${lineText || 'Description à compléter.'}
+
+Subtotal: ${money(totals.subtotal)}
+Remise: -${money(totals.discount)}
+GST 5%: ${money(totals.gst)}
+Total CAD: ${money(totals.total)}
+
+Note: pour joindre le PDF, cliquez d'abord sur PDF / Save as PDF, puis attachez le fichier dans votre email.
+
+Merci,
+${company.name}
+${company.phone || ''}
+${company.email || ''}`)
+
+  return `mailto:${invoice.client.email || ''}?subject=${subject}&body=${body}`
+}
+
+function sendEmailNow(company, invoice, totals, saveInvoice) {
+  if (!invoice.client.email?.trim()) {
+    alert('Ajoute une adresse email au client avant d’envoyer.')
+    return
+  }
+  saveInvoice({ silent: true })
+  window.location.href = buildEmailLink(company, invoice, totals)
+}
+
 function Field({ label, children }) {
   return <label className="field"><span>{label}</span>{children}</label>
 }
 
-function InvoiceEditor({ invoice, setInvoice, clients, selectClient, setLine, totals, saveClientFromInvoice, saveInvoice, newInvoice, setShowPreview }) {
+function InvoiceEditor({ company, invoice, setInvoice, clients, selectClient, setLine, totals, saveClientFromInvoice, saveInvoice, newInvoice, setShowPreview }) {
   return <section className="grid two">
     <div className="card">
       <h2>Invoice</h2>
@@ -206,6 +244,7 @@ function InvoiceEditor({ invoice, setInvoice, clients, selectClient, setLine, to
       <div className="actions">
         <button onClick={saveInvoice}><Save size={18}/> Sauver</button>
         <button onClick={()=>setShowPreview(true)} className="primary"><Eye size={18}/> Preview PDF</button>
+        <button className="email-action" onClick={()=>sendEmailNow(company, invoice, totals, saveInvoice)}><Mail size={18}/> Email client</button>
         <button onClick={newInvoice}><Plus size={18}/> Nouvelle</button>
       </div>
     </div>
@@ -312,9 +351,12 @@ function History({ invoices, loadInvoice }) {
 }
 
 function PreviewModal({ company, invoice, totals, onClose, saveInvoice }) {
-  const subject = encodeURIComponent(`${invoice.number} - ${company.name}`)
-  const body = encodeURIComponent(`Bonjour ${invoice.client.name || ''},\n\nVoici votre invoice ${invoice.number} au total de ${money(totals.total)}.\n\nMerci,\n${company.name}`)
   const smsBody = encodeURIComponent(`Bonjour ${invoice.client.name || ''}, votre invoice ${invoice.number} de ${money(totals.total)} est prête. ${company.name}`)
+  const sendSms = () => {
+    if (!invoice.client.phone?.trim()) return alert('Ajoute un numéro de téléphone au client avant d’envoyer par texto.')
+    saveInvoice({ silent: true })
+    window.location.href = `sms:${invoice.client.phone}?&body=${smsBody}`
+  }
   return <div className="modal">
     <div className="modal-head no-print">
       <h2>Preview PDF</h2>
@@ -323,9 +365,9 @@ function PreviewModal({ company, invoice, totals, onClose, saveInvoice }) {
     <div className="pdf-wrap">
       <InvoicePdf company={company} invoice={invoice} totals={totals}/>
       <div className="floating-send no-print">
-        <button onClick={()=>{saveInvoice(); setTimeout(()=>window.print(), 80)}}><Printer size={20}/> PDF</button>
-        <a onClick={saveInvoice} href={`mailto:${invoice.client.email || ''}?subject=${subject}&body=${body}`}><Mail size={20}/> Email</a>
-        <a onClick={saveInvoice} href={`sms:${invoice.client.phone || ''}?&body=${smsBody}`}><MessageSquare size={20}/> Texto</a>
+        <button onClick={()=>{saveInvoice({ silent: true }); setTimeout(()=>window.print(), 80)}}><Printer size={20}/> PDF</button>
+        <button className="email-action" onClick={()=>sendEmailNow(company, invoice, totals, saveInvoice)}><Mail size={20}/> Email</button>
+        <button className="sms-action" onClick={sendSms}><MessageSquare size={20}/> Texto</button>
       </div>
     </div>
   </div>
