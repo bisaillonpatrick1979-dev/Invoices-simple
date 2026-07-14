@@ -1,24 +1,33 @@
 # Invoices Simple
 
-Application professionnelle de création et gestion d'invoices.
+Application de création et gestion d'invoices, avec une interface calquée sur **Invoice Simple** : barre latérale navy (bureau), navigation en bas d'écran (mobile), boutons verts, badges de statut et aperçu PDF professionnel.
 
-## Fonctions incluses
+## Écrans
 
-- Informations de compagnie dans les settings
-- Logo de compagnie optionnel
-- Mémoire des clients sauvegardée localement
-- Création d'invoice avec numéro, date, due date et titre
-- Lignes de description avec quantité, unité, prix et total
-- Effet zébré dans les lignes de description du PDF
-- Filigrane léger avec le nom de la compagnie
-- Option GST 5% Alberta activable/désactivable
-- Remise en pourcentage ou en montant fixe
-- Signature tactile au bas de l'invoice
-- Preview PDF avant l'envoi
-- Bulle flottante dans le preview pour PDF, Email ou Texto
-- Historique des invoices sauvegardées
-- Interface mobile-first
-- Données sauvegardées dans le navigateur avec localStorage
+- **Invoices** — liste avec recherche, filtres (Toutes / Impayées / Payées), solde impayé total, badges de statut (Brouillon, Impayée, En retard, Payée)
+- **Estimates** — soumissions avec conversion en invoice en un clic
+- **Clients** — carnet de clients sauvegardé localement (ajout, modification, recherche)
+- **Items** — catalogue de produits/services réutilisables (prix, unité, taxable)
+- **Reports** — facturé / payé / impayé par année, détail par mois, par client et par item
+- **Settings** — infos de compagnie, logo, taxe (nom + taux, GST 5 % Alberta par défaut), préfixes de numérotation, couleur du PDF, notes et instructions de paiement par défaut
+
+## Éditeur d'invoice
+
+- Numéro, date, termes (sur réception / net 7-14-30 / date personnalisée) avec due date automatique
+- Section Bill To avec clients en mémoire
+- Lignes d'items : description, quantité, unité, prix, taxable par ligne, insertion depuis le catalogue, sauvegarde d'une ligne comme item
+- Taxe activable, taux modifiable, remise en % ou en $
+- Paiements et bouton « Marquer payée » (balance due calculée)
+- Photos jointes (apparaissent sur le PDF)
+- Notes et signature tactile
+- Bascule Edit / Preview comme dans Invoice Simple
+
+## Aperçu PDF
+
+- En-tête avec logo et couleur d'accent choisie dans les settings
+- Effet zébré dans les lignes, filigrane léger avec le nom de la compagnie
+- Totaux avec taxe, remise, payé et balance due
+- Bulle flottante PDF / Email / Texto
 
 ## Commandes
 
@@ -35,6 +44,8 @@ npm run build
 
 ## Notes
 
-Le bouton PDF utilise l'impression du navigateur. Pour créer un fichier PDF, choisir "Save as PDF" ou "Enregistrer en PDF" dans la fenêtre d'impression.
+Le bouton PDF utilise l'impression du navigateur : choisir « Save as PDF / Enregistrer en PDF ».
 
 Les boutons Email et Texto ouvrent l'application email/SMS de l'appareil avec un message préparé. Pour joindre le PDF automatiquement, il faudra ajouter plus tard un backend ou une intégration email/SMS réelle.
+
+Toutes les données restent dans le navigateur (localStorage). Les données de l'ancienne version de l'app sont migrées automatiquement au premier lancement.
