@@ -2,7 +2,13 @@
 
 export const uid = () => Math.random().toString(36).slice(2, 10)
 export const today = () => new Date().toISOString().slice(0, 10)
-export const money = n => new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(Number(n || 0))
+export const money = n => new Intl.NumberFormat('fr-CA', { style: 'currency', currency: 'CAD' }).format(Number(n || 0))
+// Format de date comme dans l'app : MM/DD/YYYY
+export const fmtDate = iso => {
+  if (!iso) return ''
+  const [y, m, d] = iso.split('-')
+  return `${m}/${d}/${y}`
+}
 
 export const load = (key, fallback) => {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback } catch { return fallback }
@@ -21,39 +27,25 @@ export const emptySettings = {
     gst: ''
   },
   logo: '',
-  taxLabel: 'GST',
+  taxLabel: 'Gst',
   taxRate: 5,
   taxDefault: true,
-  accent: '#2e7d32',
-  invoicePrefix: 'INV',
+  accent: '#4353c9',
+  invoicePrefix: 'INVOICE',
   estimatePrefix: 'EST',
-  defaultNotes: 'Merci pour votre confiance.',
+  defaultNotes: '',
   paymentInstructions: ''
 }
 
 export const emptyClient = { id: '', name: '', phone: '', email: '', address: '', city: '', notes: '' }
 export const emptyItem = { id: '', description: '', unit: 'ea', rate: 0, taxable: true }
+export const emptyExpense = { id: '', date: '', description: '', category: 'Matériel', amount: 0 }
+
+export const EXPENSE_CATEGORIES = ['Matériel', 'Essence', 'Outils', 'Sous-traitance', 'Repas', 'Autre']
 
 export const newLine = () => ({ id: uid(), description: '', qty: 1, unit: 'ea', rate: 0, taxable: true })
 
-export const TERMS = [
-  { id: 'receipt', label: 'Sur réception', days: 0 },
-  { id: '7', label: 'Net 7 jours', days: 7 },
-  { id: '14', label: 'Net 14 jours', days: 14 },
-  { id: '30', label: 'Net 30 jours', days: 30 },
-  { id: 'custom', label: 'Date personnalisée', days: null }
-]
-
-export const dueDateFromTerms = (date, termsId) => {
-  const t = TERMS.find(x => x.id === termsId)
-  if (!t || t.days == null) return ''
-  const d = new Date(date + 'T00:00:00')
-  d.setDate(d.getDate() + t.days)
-  return d.toISOString().slice(0, 10)
-}
-
 export const nextNumber = (docs, type, prefix) => {
-  const year = new Date().getFullYear()
   const nums = docs
     .filter(d => d.docType === type)
     .map(d => {
@@ -61,7 +53,7 @@ export const nextNumber = (docs, type, prefix) => {
       return m ? Number(m[1]) : 0
     })
   const next = (nums.length ? Math.max(...nums) : 0) + 1
-  return `${prefix}-${year}-${String(next).padStart(3, '0')}`
+  return `${prefix}${String(next).padStart(4, '0')}`
 }
 
 export const newDocument = (type, settings, docs) => ({
@@ -69,21 +61,28 @@ export const newDocument = (type, settings, docs) => ({
   docType: type,
   number: nextNumber(docs, type, type === 'invoice' ? settings.invoicePrefix : settings.estimatePrefix),
   date: today(),
-  terms: '14',
-  dueDate: dueDateFromTerms(today(), '14'),
+  dueDate: '',
   clientId: '',
   client: { ...emptyClient },
-  lines: [newLine()],
+  lines: [],
   chargeTax: settings.taxDefault,
   taxRate: settings.taxRate,
   discountType: '$',
   discountValue: 0,
   notes: settings.defaultNotes,
+  paymentInfo: settings.paymentInstructions,
   photos: [],
   signature: '',
   payments: [],
   status: 'draft',
+  closed: false,
+  history: [{ id: uid(), at: new Date().toISOString(), label: type === 'invoice' ? 'Facture créée' : 'Devis créé' }],
   updatedAt: new Date().toISOString()
+})
+
+export const withEvent = (doc, label) => ({
+  ...doc,
+  history: [...(doc.history || []), { id: uid(), at: new Date().toISOString(), label }]
 })
 
 export const lineTotal = l => Number(l.qty || 0) * Number(l.rate || 0)
@@ -106,27 +105,32 @@ export function calcTotals(doc) {
 
 export function docStatus(doc) {
   const { total, balance } = calcTotals(doc)
-  if (doc.docType === 'estimate') return doc.status === 'approved' ? 'approved' : (doc.status === 'sent' ? 'sent' : 'draft')
+  if (doc.docType === 'estimate') return doc.closed ? 'closed' : 'open'
   if (total > 0 && balance <= 0.005) return 'paid'
-  if (doc.status === 'sent' || (doc.payments || []).length > 0) {
-    if (doc.dueDate && doc.dueDate < today()) return 'overdue'
-    return 'outstanding'
-  }
-  return 'draft'
+  return 'unpaid'
 }
 
-export const STATUS_LABELS = {
-  draft: 'Brouillon',
-  outstanding: 'Impayée',
-  overdue: 'En retard',
-  paid: 'Payée',
-  sent: 'Envoyée',
-  approved: 'Approuvée'
+export const lastPaymentDate = doc => {
+  const ps = doc.payments || []
+  return ps.length ? ps[ps.length - 1].date : ''
 }
 
-// Migration depuis l'ancienne version de l'app (inv_invoices / inv_company)
+// Migration depuis les anciennes versions de l'app
 export function migrateOldData() {
-  if (localStorage.getItem('is_docs') || !localStorage.getItem('inv_invoices')) return null
+  try {
+    const docs = JSON.parse(localStorage.getItem('is_docs'))
+    if (docs) {
+      // v2 -> v3 : ajouter history/closed/paymentInfo manquants
+      let changed = false
+      const upgraded = docs.map(d => {
+        if (d.history) return d
+        changed = true
+        return { ...d, history: [], closed: d.status === 'approved', paymentInfo: d.paymentInfo || '' }
+      })
+      return changed ? { docs: upgraded } : null
+    }
+  } catch { /* continue */ }
+  if (!localStorage.getItem('inv_invoices')) return null
   try {
     const oldInvoices = JSON.parse(localStorage.getItem('inv_invoices')) || []
     const oldCompany = JSON.parse(localStorage.getItem('inv_company')) || {}
@@ -134,22 +138,24 @@ export function migrateOldData() {
     const docs = oldInvoices.map(inv => ({
       id: inv.id || uid(),
       docType: 'invoice',
-      number: inv.number || 'INV-001',
+      number: inv.number || 'INVOICE0001',
       date: inv.date || today(),
-      terms: 'custom',
       dueDate: inv.dueDate || '',
       clientId: inv.clientId || '',
       client: inv.client || { ...emptyClient },
-      lines: (inv.lines || []).map(l => ({ id: l.id || uid(), description: l.description || '', qty: l.qty || 1, unit: l.unit || 'ea', rate: l.price || 0, taxable: true })),
+      lines: (inv.lines || []).map(l => ({ id: l.id || uid(), description: l.description || '', qty: l.qty || 1, unit: l.unit || 'ea', rate: l.price ?? l.rate ?? 0, taxable: true })),
       chargeTax: inv.chargeGst !== false,
       taxRate: 5,
       discountType: inv.discountType || '$',
       discountValue: inv.discountValue || 0,
       notes: inv.notes || '',
+      paymentInfo: '',
       photos: [],
       signature: inv.signature || '',
       payments: [],
       status: 'draft',
+      closed: false,
+      history: [],
       updatedAt: inv.updatedAt || new Date().toISOString()
     }))
     const settings = {

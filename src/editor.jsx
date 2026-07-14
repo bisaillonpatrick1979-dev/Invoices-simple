@@ -1,50 +1,63 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
-  ArrowLeft, Plus, Trash2, Save, Eye, Pencil, Mail, MessageSquare, Printer,
-  PenLine, Camera, CheckCircle2, FileText
+  ArrowLeft, MoreVertical, ChevronRight, Send, Paperclip, Trash2,
+  Mail, MessageSquare, Printer, Clock, X, Maximize2, PenLine
 } from 'lucide-react'
 import {
-  calcTotals, docStatus, dueDateFromTerms, lineTotal, money, newLine,
-  STATUS_LABELS, TERMS, uid, today, emptyClient
+  calcTotals, docStatus, fmtDate, lineTotal, money, newLine,
+  uid, today, emptyClient, withEvent
 } from './store.js'
-import { StatusBadge } from './lists.jsx'
+import { AppBar } from './lists.jsx'
 import { InvoicePaper } from './paper.jsx'
 
-function Field({ label, children }) {
-  return <label className="field"><span>{label}</span>{children}</label>
+const EDITOR_TABS = [
+  { id: 'edit', label: 'Modifier' },
+  { id: 'preview', label: 'Aperçu' },
+  { id: 'history', label: 'Historique' }
+]
+
+function Row({ children, onClick, chevron, bold, className = '' }) {
+  const Tag = onClick ? 'button' : 'div'
+  return <Tag className={`edit-row ${bold ? 'bold' : ''} ${className}`} onClick={onClick}>
+    {children}
+    {chevron && <ChevronRight size={20} className="row-chev"/>}
+  </Tag>
 }
 
-function buildEmailLink(settings, doc, totals) {
+function buildEmailBody(settings, doc, totals) {
   const b = settings.business
-  const kind = doc.docType === 'invoice' ? 'invoice' : 'estimate'
-  const subject = encodeURIComponent(`${doc.number} - ${b.name}`)
+  const kind = doc.docType === 'invoice' ? 'facture' : 'devis'
   const lineText = doc.lines
     .filter(l => l.description || l.qty || l.rate)
-    .map(l => `- ${l.description || 'Item'} | Qty: ${l.qty || 0} ${l.unit || ''} | Prix: ${money(l.rate)} | Total: ${money(lineTotal(l))}`)
+    .map(l => `- ${l.description || 'Article'} | ${l.qty || 0} ${l.unit || ''} x ${money(l.rate)} = ${money(lineTotal(l))}`)
     .join('\n')
-  const body = encodeURIComponent(
+  return (
 `Bonjour ${doc.client.name || ''},
 
-Voici les détails de votre ${kind} ${doc.number}.
+Voici votre ${kind} ${doc.number}.
 
-${lineText || 'Description à compléter.'}
+${lineText || 'Détails à venir.'}
 
-Subtotal: ${money(totals.subtotal)}
-Remise: -${money(totals.discount)}
-${settings.taxLabel} ${doc.taxRate}%: ${money(totals.tax)}
-Total CAD: ${money(totals.total)}
-${totals.paid > 0 ? `Payé: ${money(totals.paid)}\nBalance due: ${money(totals.balance)}\n` : ''}
-Note: pour joindre le PDF, cliquez d'abord sur PDF / Save as PDF, puis attachez le fichier dans votre email.
+Sous-total : ${money(totals.subtotal)}
+Remise : -${money(totals.discount)}
+${settings.taxLabel} (${doc.taxRate}%) : ${money(totals.tax)}
+Total : ${money(totals.total)}
+${totals.paid > 0 ? `Paiements : ${money(totals.paid)}\nSolde dû : ${money(totals.balance)}\n` : ''}
+Note : pour joindre le PDF, cliquez d'abord sur PDF / Save as PDF, puis attachez le fichier dans votre email.
 
 Merci,
 ${b.name}
 ${b.phone || ''}
 ${b.email || ''}`)
-  return `mailto:${doc.client.email || ''}?subject=${subject}&body=${body}`
 }
 
-export function DocumentEditor({ doc, settings, clients, items, onChange, onSave, onDelete, onConvert, onSaveClient, onSaveItem, onClose }) {
+export function DocumentEditor({ doc, settings, clients, items, onChange, onSave, onDelete, onConvert, onSaveClient, onSaveItem, onOpenSettings, onClose }) {
   const [view, setView] = useState('edit')
+  const [sendOpen, setSendOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [clientOpen, setClientOpen] = useState(false)
+  const [payOpen, setPayOpen] = useState(false)
+  const [sigOpen, setSigOpen] = useState(false)
   const totals = calcTotals(doc)
   const status = docStatus(doc)
   const isInvoice = doc.docType === 'invoice'
@@ -53,39 +66,64 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
   const setClient = patch => set({ client: { ...doc.client, ...patch } })
   const setLine = (id, patch) => set({ lines: doc.lines.map(l => l.id === id ? { ...l, ...patch } : l) })
 
-  const persist = (extra = {}, { silent = true } = {}) => {
-    const merged = { ...doc, ...extra }
-    onChange(merged)
-    onSave(merged)
-    if (!silent) alert('Document sauvegardé.')
-    return merged
-  }
+  const persist = (next = doc) => { onChange(next); onSave(next); return next }
+
+  const logAndSave = label => persist(withEvent(doc, label))
 
   const sendEmail = () => {
     if (!doc.client.email?.trim()) return alert('Ajoute une adresse email au client avant d’envoyer.')
-    const saved = persist({ status: status === 'draft' ? 'sent' : doc.status })
-    window.location.href = buildEmailLink(settings, saved, totals)
+    const saved = persist(withEvent({ ...doc, status: 'sent' }, 'Envoyée par email'))
+    const subject = encodeURIComponent(`${saved.number} - ${settings.business.name}`)
+    const body = encodeURIComponent(buildEmailBody(settings, saved, totals))
+    window.location.href = `mailto:${saved.client.email}?subject=${subject}&body=${body}`
+    setSendOpen(false)
   }
 
   const sendSms = () => {
     if (!doc.client.phone?.trim()) return alert('Ajoute un numéro de téléphone au client avant d’envoyer par texto.')
-    const saved = persist({ status: status === 'draft' ? 'sent' : doc.status })
-    const body = encodeURIComponent(`Bonjour ${saved.client.name || ''}, votre ${isInvoice ? 'invoice' : 'estimate'} ${saved.number} de ${money(totals.total)} est prête. ${settings.business.name}`)
+    const saved = persist(withEvent({ ...doc, status: 'sent' }, 'Envoyée par texto'))
+    const body = encodeURIComponent(`Bonjour ${saved.client.name || ''}, votre ${isInvoice ? 'facture' : 'devis'} ${saved.number} de ${money(totals.total)} est prête. ${settings.business.name}`)
     window.location.href = `sms:${saved.client.phone}?&body=${body}`
+    setSendOpen(false)
   }
 
   const printPdf = () => {
-    persist()
+    persist(withEvent(doc, 'PDF généré'))
+    setSendOpen(false)
     setView('preview')
-    setTimeout(() => window.print(), 120)
+    setTimeout(() => window.print(), 150)
   }
 
   const markPaid = () => {
     if (totals.balance <= 0) return
-    persist({
-      status: 'sent',
+    persist(withEvent({
+      ...doc,
       payments: [...(doc.payments || []), { id: uid(), date: today(), amount: Number(totals.balance.toFixed(2)), method: 'Autre' }]
-    })
+    }, `Marquée comme payée (${money(totals.balance)})`))
+  }
+
+  const addPayment = () => {
+    const amount = Number(prompt('Montant du paiement :', totals.balance > 0 ? totals.balance.toFixed(2) : ''))
+    if (!amount || amount <= 0) return
+    persist(withEvent({
+      ...doc,
+      payments: [...(doc.payments || []), { id: uid(), date: today(), amount, method: 'Paiement' }]
+    }, `Paiement ajouté (${money(amount)})`))
+  }
+
+  const convert = () => {
+    const inv = withEvent({
+      ...doc,
+      id: uid(),
+      docType: 'invoice',
+      number: doc.number.replace(settings.estimatePrefix, settings.invoicePrefix),
+      payments: [],
+      status: 'draft',
+      closed: false
+    }, 'Convertie depuis un devis')
+    persist(withEvent({ ...doc, closed: true }, 'Convertie en facture'))
+    setMenuOpen(false)
+    onConvert(inv)
   }
 
   const selectClient = id => {
@@ -105,12 +143,6 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
     if (it) setLine(lineId, { description: it.description, unit: it.unit, rate: it.rate, taxable: it.taxable !== false })
   }
 
-  const saveLineAsItem = line => {
-    if (!line.description.trim()) return alert('Entre une description avant de sauvegarder l’item.')
-    onSaveItem({ id: uid(), description: line.description, unit: line.unit || 'ea', rate: Number(line.rate || 0), taxable: line.taxable !== false })
-    alert('Item sauvegardé dans le catalogue.')
-  }
-
   const addPhotos = e => {
     const files = Array.from(e.target.files || [])
     Promise.all(files.map(file => new Promise(resolve => {
@@ -122,146 +154,203 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
   }
 
   return <section className="screen editor">
-    <header className="editor-head no-print">
-      <button className="icon" onClick={() => { persist(); onClose() }}><ArrowLeft size={20}/></button>
-      <div className="editor-title">
-        <h1>{doc.number}</h1>
-        <StatusBadge status={status}/>
+    <AppBar
+      title={isInvoice ? 'Facture' : 'Devis'}
+      left={<button className="icon light" onClick={() => { persist(); onClose() }}><ArrowLeft size={22}/></button>}
+      right={<button className="icon light" onClick={() => setMenuOpen(o => !o)}><MoreVertical size={22}/></button>}
+      tabs={EDITOR_TABS}
+      activeTab={view}
+      onTab={id => { persist(); setView(id) }}
+    />
+
+    {menuOpen && <div className="menu-backdrop no-print" onClick={() => setMenuOpen(false)}>
+      <div className="menu" onClick={e => e.stopPropagation()}>
+        <button onClick={() => { logAndSave('Enregistrée manuellement'); setMenuOpen(false) }}>Enregistrer</button>
+        {!isInvoice && !doc.closed && <button onClick={convert}>Convertir en facture</button>}
+        <button className="danger" onClick={() => { if (confirm(`Supprimer ${doc.number} ?`)) { onDelete(); onClose() } }}>Supprimer</button>
       </div>
-      <div className="view-toggle">
-        <button className={view === 'edit' ? 'active' : ''} onClick={() => setView('edit')}><Pencil size={16}/> Edit</button>
-        <button className={view === 'preview' ? 'active' : ''} onClick={() => { persist(); setView('preview') }}><Eye size={16}/> Preview</button>
-      </div>
-    </header>
+    </div>}
 
     {view === 'edit' && <div className="editor-body no-print">
-      <div className="card">
-        <h2 className="section-title">Détails {isInvoice ? 'de l’invoice' : 'de l’estimate'}</h2>
-        <div className="grid two smallgap">
-          <Field label="Numéro"><input value={doc.number} onChange={e => set({ number: e.target.value })}/></Field>
-          <Field label="Date"><input type="date" value={doc.date} onChange={e => set({ date: e.target.value, dueDate: dueDateFromTerms(e.target.value, doc.terms) || doc.dueDate })}/></Field>
-          <Field label="Termes">
-            <select value={doc.terms} onChange={e => set({ terms: e.target.value, dueDate: dueDateFromTerms(doc.date, e.target.value) || doc.dueDate })}>
-              {TERMS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-            </select>
-          </Field>
-          <Field label="Due date"><input type="date" value={doc.dueDate} onChange={e => set({ dueDate: e.target.value, terms: 'custom' })}/></Field>
-        </div>
+      {/* Numéro / entreprise / date */}
+      <div className="edit-card">
+        <Row>
+          <input className="ghost bold-input" value={doc.number} onChange={e => set({ number: e.target.value })}/>
+        </Row>
+        <Row onClick={onOpenSettings} chevron>
+          <span className="hint">Informations relatives à l'entreprise</span>
+          <input type="date" className="ghost date-input" value={doc.date} onClick={e => e.stopPropagation()} onChange={e => set({ date: e.target.value })}/>
+        </Row>
       </div>
 
-      <div className="card">
-        <h2 className="section-title">Bill To — Client</h2>
-        <Field label="Client en mémoire">
+      {/* Client */}
+      <div className="edit-card">
+        <Row onClick={() => setClientOpen(o => !o)} chevron>
+          <span><b>À</b> <span className={doc.client.name ? '' : 'hint'}>{doc.client.name || 'Client'}</span></span>
+        </Row>
+        {clientOpen && <div className="row-detail">
           <select value={doc.clientId} onChange={e => selectClient(e.target.value)}>
             <option value="">Nouveau client / entrer manuellement</option>
             {clients.map(c => <option key={c.id} value={c.id}>{c.name}{c.city ? ` — ${c.city}` : ''}</option>)}
           </select>
-        </Field>
-        <div className="grid two smallgap">
-          <Field label="Nom client"><input value={doc.client.name} onChange={e => setClient({ name: e.target.value })}/></Field>
-          <Field label="Téléphone"><input value={doc.client.phone} onChange={e => setClient({ phone: e.target.value })}/></Field>
-          <Field label="Email"><input value={doc.client.email} onChange={e => setClient({ email: e.target.value })}/></Field>
-          <Field label="Ville"><input value={doc.client.city} onChange={e => setClient({ city: e.target.value })}/></Field>
-        </div>
-        <Field label="Adresse client"><textarea rows={2} value={doc.client.address} onChange={e => setClient({ address: e.target.value })}/></Field>
-        <button className="soft" onClick={saveClientToBook}><Save size={17}/> Sauvegarder client en mémoire</button>
-      </div>
-
-      <div className="card">
-        <h2 className="section-title">Items</h2>
-        <div className="line-editor">
-          {doc.lines.map((l, idx) => <div className="line-block" key={l.id}>
-            <div className="line-top">
-              <b>#{idx + 1}</b>
-              {items.length > 0 && <select className="item-pick" value="" onChange={e => applyItem(l.id, e.target.value)}>
-                <option value="">Item sauvegardé...</option>
-                {items.map(it => <option key={it.id} value={it.id}>{it.description} — {money(it.rate)}</option>)}
-              </select>}
-              <button className="icon" title="Sauvegarder comme item" onClick={() => saveLineAsItem(l)}><Save size={15}/></button>
-              <button className="icon danger" onClick={() => set({ lines: doc.lines.filter(x => x.id !== l.id) })}><Trash2 size={15}/></button>
-            </div>
-            <input className="desc" placeholder="Description du travail / matériel" value={l.description} onChange={e => setLine(l.id, { description: e.target.value })}/>
-            <div className="line-nums">
-              <Field label="Qty"><input type="number" value={l.qty} onChange={e => setLine(l.id, { qty: e.target.value })}/></Field>
-              <Field label="Unité"><input value={l.unit} onChange={e => setLine(l.id, { unit: e.target.value })}/></Field>
-              <Field label="Prix"><input type="number" value={l.rate} onChange={e => setLine(l.id, { rate: e.target.value })}/></Field>
-              <div className="line-amount"><span>Total</span><b>{money(lineTotal(l))}</b></div>
-            </div>
-            <label className="check small"><input type="checkbox" checked={l.taxable !== false} onChange={e => setLine(l.id, { taxable: e.target.checked })}/> Taxable ({settings.taxLabel})</label>
-          </div>)}
-        </div>
-        <button className="soft" onClick={() => set({ lines: [...doc.lines, newLine()] })}><Plus size={17}/> Ajouter une ligne</button>
-      </div>
-
-      <div className="card">
-        <h2 className="section-title">Taxe, remise & total</h2>
-        <label className="check"><input type="checkbox" checked={doc.chargeTax} onChange={e => set({ chargeTax: e.target.checked })}/> Charger {settings.taxLabel} {doc.taxRate}%{settings.taxLabel === 'GST' && doc.taxRate === 5 ? ' Alberta' : ''}</label>
-        <div className="grid two smallgap">
-          <Field label={`Taux ${settings.taxLabel} %`}><input type="number" value={doc.taxRate} onChange={e => set({ taxRate: e.target.value })}/></Field>
-          <div/>
-          <Field label="Remise"><input type="number" value={doc.discountValue} onChange={e => set({ discountValue: e.target.value })}/></Field>
-          <Field label="Type remise">
-            <select value={doc.discountType} onChange={e => set({ discountType: e.target.value })}>
-              <option value="$">$ prix fixe</option>
-              <option value="%">% pourcentage</option>
-            </select>
-          </Field>
-        </div>
-        <div className="totals">
-          <span>Subtotal</span><b>{money(totals.subtotal)}</b>
-          <span>Remise</span><b>-{money(totals.discount)}</b>
-          <span>{settings.taxLabel} {doc.taxRate}%</span><b>{money(totals.tax)}</b>
-          <span className="grand">Total</span><b className="grand">{money(totals.total)}</b>
-          {totals.paid > 0 && <><span>Payé</span><b>-{money(totals.paid)}</b>
-          <span className="grand">Balance due</span><b className="grand">{money(totals.balance)}</b></>}
-        </div>
-        {isInvoice && <div className="payments">
-          {(doc.payments || []).map(p => <div className="payment-row" key={p.id}>
-            <CheckCircle2 size={16} className="paid-ico"/>
-            <span>{p.date} — {p.method}</span>
-            <b>{money(p.amount)}</b>
-            <button className="icon danger" onClick={() => set({ payments: doc.payments.filter(x => x.id !== p.id) })}><Trash2 size={14}/></button>
-          </div>)}
-          {totals.balance > 0.005 && <button className="paid-btn" onClick={markPaid}><CheckCircle2 size={17}/> Marquer payée ({money(totals.balance)})</button>}
+          <input placeholder="Nom du client" value={doc.client.name} onChange={e => setClient({ name: e.target.value })}/>
+          <div className="pair">
+            <input placeholder="Téléphone" value={doc.client.phone} onChange={e => setClient({ phone: e.target.value })}/>
+            <input placeholder="Email" value={doc.client.email} onChange={e => setClient({ email: e.target.value })}/>
+          </div>
+          <input placeholder="Adresse" value={doc.client.address} onChange={e => setClient({ address: e.target.value })}/>
+          <input placeholder="Ville" value={doc.client.city} onChange={e => setClient({ city: e.target.value })}/>
+          <button className="link-btn" onClick={saveClientToBook}>Sauvegarder ce client en mémoire</button>
         </div>}
       </div>
 
-      <div className="card">
-        <h2 className="section-title">Photos</h2>
-        <div className="photo-grid">
+      {/* Articles */}
+      <div className="edit-card">
+        {doc.lines.map(l => <div className="line-block" key={l.id}>
+          <div className="line-main">
+            <input className="ghost" placeholder="Description" value={l.description} onChange={e => setLine(l.id, { description: e.target.value })}/>
+            <div className="line-right">
+              <span className="line-calc">
+                <input type="number" value={l.qty} onChange={e => setLine(l.id, { qty: e.target.value })}/>
+                ×
+                <input type="number" value={l.rate} onChange={e => setLine(l.id, { rate: e.target.value })}/>
+              </span>
+              <b>{money(lineTotal(l))}</b>
+            </div>
+          </div>
+          <div className="line-extra">
+            {items.length > 0 && <select value="" onChange={e => applyItem(l.id, e.target.value)}>
+              <option value="">Article sauvegardé...</option>
+              {items.map(it => <option key={it.id} value={it.id}>{it.description} — {money(it.rate)}</option>)}
+            </select>}
+            <label className="check small"><input type="checkbox" checked={l.taxable !== false} onChange={e => setLine(l.id, { taxable: e.target.checked })}/> {settings.taxLabel}</label>
+            <button className="icon danger" onClick={() => set({ lines: doc.lines.filter(x => x.id !== l.id) })}><Trash2 size={16}/></button>
+          </div>
+        </div>)}
+        <Row onClick={() => set({ lines: [...doc.lines, newLine()] })}>
+          <span className="hint">Ajouter un article</span>
+          <span className="hint right-num">{doc.lines.length === 0 && <>0 × 0,00 $<br/>0,00 $</>}</span>
+        </Row>
+      </div>
+
+      {/* Sous-total */}
+      <div className="edit-card">
+        <Row bold><span>Sous-total</span><b>{money(totals.subtotal)}</b></Row>
+      </div>
+
+      {/* Remise / taxe / totaux */}
+      <div className="edit-card">
+        <Row>
+          <span>Remise</span>
+          <span className="inline-edit">
+            <input type="number" value={doc.discountValue} onChange={e => set({ discountValue: e.target.value })}/>
+            <select value={doc.discountType} onChange={e => set({ discountType: e.target.value })}>
+              <option value="$">$</option>
+              <option value="%">%</option>
+            </select>
+            <b>{money(totals.discount)}</b>
+          </span>
+        </Row>
+        <Row>
+          <span>
+            <label className="check inline"><input type="checkbox" checked={doc.chargeTax} onChange={e => set({ chargeTax: e.target.checked })}/> {settings.taxLabel} ({doc.taxRate}%)</label>
+          </span>
+          <b>{money(totals.tax)}</b>
+        </Row>
+        <Row><span>Total</span><b>{money(totals.total)}</b></Row>
+        <Row><span>Paiements</span><b>{money(totals.paid)}</b></Row>
+        <Row bold><span>Solde dû</span><b>{money(totals.balance)}</b></Row>
+      </div>
+
+      {/* Planification des paiements */}
+      {isInvoice && <div className="edit-card">
+        <Row onClick={() => setPayOpen(o => !o)} chevron>
+          <div className="row-text">
+            <b>Planification des paiements</b>
+            <small>Gérez le dépôt, les paiements à venir et enregistrez tous les paiements précédemment effectués</small>
+          </div>
+        </Row>
+        {payOpen && <div className="row-detail">
+          {(doc.payments || []).length === 0 && <p className="hint">Aucun paiement enregistré.</p>}
+          {(doc.payments || []).map(p => <div className="payment-row" key={p.id}>
+            <span>{fmtDate(p.date)} — {p.method}</span>
+            <b>{money(p.amount)}</b>
+            <button className="icon danger" onClick={() => set({ payments: doc.payments.filter(x => x.id !== p.id) })}><Trash2 size={15}/></button>
+          </div>)}
+          <button className="link-btn" onClick={addPayment}>Enregistrer un paiement</button>
+        </div>}
+      </div>}
+
+      {/* Photo */}
+      <div className="edit-card">
+        <label className="edit-row file-row">
+          <span className={doc.photos.length ? '' : 'hint'}>{doc.photos.length ? `${doc.photos.length} photo${doc.photos.length > 1 ? 's' : ''}` : 'Ajouter une photo'}</span>
+          <Paperclip size={19} className="hint"/>
+          <input type="file" accept="image/*" multiple onChange={addPhotos} hidden/>
+        </label>
+        {doc.photos.length > 0 && <div className="photo-grid">
           {doc.photos.map(p => <div className="photo" key={p.id}>
             <img src={p.src}/>
-            <button className="icon danger" onClick={() => set({ photos: doc.photos.filter(x => x.id !== p.id) })}><Trash2 size={14}/></button>
+            <button className="icon danger" onClick={() => set({ photos: doc.photos.filter(x => x.id !== p.id) })}><X size={14}/></button>
           </div>)}
-          <label className="photo add">
-            <Camera size={22}/><span>Ajouter</span>
-            <input type="file" accept="image/*" multiple onChange={addPhotos} hidden/>
-          </label>
+        </div>}
+      </div>
+
+      {/* Info paiement / remarques */}
+      <div className="edit-card">
+        <input className="edit-row ghost" placeholder="Info sur le paiement" value={doc.paymentInfo || ''} onChange={e => set({ paymentInfo: e.target.value })}/>
+        <textarea className="edit-row ghost notes" rows={3} placeholder="Remarques" value={doc.notes} onChange={e => set({ notes: e.target.value })}/>
+      </div>
+
+      {/* Signature */}
+      <div className="edit-card">
+        <Row onClick={() => setSigOpen(o => !o)} chevron>
+          <span className={doc.signature ? '' : 'hint'}><PenLine size={16} style={{ verticalAlign: '-3px', marginRight: 8 }}/>{doc.signature ? 'Signature ajoutée' : 'Signature'}</span>
+        </Row>
+        {sigOpen && <div className="row-detail">
+          <SignaturePad value={doc.signature} onChange={sig => set({ signature: sig })}/>
+        </div>}
+      </div>
+
+      {isInvoice && totals.balance > 0.005 && totals.total > 0 &&
+        <button className="outline-btn" onClick={markPaid}>Marquer comme payée</button>}
+      {!isInvoice && !doc.closed &&
+        <button className="outline-btn" onClick={convert}>Convertir en facture</button>}
+    </div>}
+
+    {view === 'preview' && <div className="preview-body">
+      <div className="pdf-frame">
+        <InvoicePaper settings={settings} doc={doc} totals={totals}/>
+        <button className="expand-btn no-print" onClick={printPdf} title="Plein écran / PDF"><Maximize2 size={20}/></button>
+      </div>
+      <button className="outline-btn no-print" onClick={printPdf}>Télécharger / imprimer le PDF</button>
+    </div>}
+
+    {view === 'history' && <div className="editor-body">
+      {(doc.history || []).length === 0 && <div className="empty">
+        <span className="empty-circle"><Clock size={38}/></span>
+        <p><b>L'historique de vos {isInvoice ? 'factures' : 'devis'} s'affichera ici</b></p>
+        <p>Enregistrer manuellement ou envoyer une facture pour enregistrer une version</p>
+      </div>}
+      {(doc.history || []).slice().reverse().map(h => <div className="history-row" key={h.id}>
+        <Clock size={17}/>
+        <div>
+          <b>{h.label}</b>
+          <small>{new Date(h.at).toLocaleString('fr-CA')}</small>
         </div>
-      </div>
-
-      <div className="card">
-        <h2 className="section-title">Notes & signature</h2>
-        <Field label="Notes / conditions"><textarea rows={3} value={doc.notes} onChange={e => set({ notes: e.target.value })} placeholder="Paiement dû, garantie, détails du chantier..."/></Field>
-        <SignaturePad value={doc.signature} onChange={sig => set({ signature: sig })}/>
-      </div>
-
-      <div className="editor-actions">
-        <button onClick={() => persist({}, { silent: false })}><Save size={17}/> Sauver</button>
-        <button className="primary" onClick={() => { persist(); setView('preview') }}><Eye size={17}/> Preview</button>
-        {!isInvoice && <button className="convert" onClick={() => onConvert(doc)}><FileText size={17}/> Convertir en invoice</button>}
-        <button className="danger-line" onClick={() => { if (confirm(`Supprimer ${doc.number} ?`)) { onDelete(); onClose() } }}><Trash2 size={17}/> Supprimer</button>
-      </div>
+      </div>)}
     </div>}
 
-    {view === 'preview' && <div className="pdf-wrap">
-      <InvoicePaper settings={settings} doc={doc} totals={totals}/>
-      <div className="floating-send no-print">
-        <button onClick={printPdf}><Printer size={20}/> PDF</button>
-        <button className="email-action" onClick={sendEmail}><Mail size={20}/> Email</button>
-        <button className="sms-action" onClick={sendSms}><MessageSquare size={20}/> Texto</button>
-      </div>
-    </div>}
+    {view !== 'history' && <>
+      {sendOpen && <div className="menu-backdrop no-print" onClick={() => setSendOpen(false)}>
+        <div className="send-menu" onClick={e => e.stopPropagation()}>
+          <button onClick={sendEmail}><Mail size={19}/> Email</button>
+          <button onClick={sendSms}><MessageSquare size={19}/> Texto</button>
+          <button onClick={printPdf}><Printer size={19}/> PDF</button>
+        </div>
+      </div>}
+      <button className="send-fab no-print" onClick={() => setSendOpen(o => !o)}><Send size={19}/> Envoyer</button>
+    </>}
   </section>
 }
 
@@ -299,12 +388,9 @@ export function SignaturePad({ value, onChange }) {
     if (value) { const img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0, c.width, c.height); img.src = value }
   }, [])
   return <div className="signature">
-    <div className="sig-head">
-      <span><PenLine size={16}/> Signature tactile</span>
-      <button className="soft mini" onClick={() => { const c = ref.current; c.getContext('2d').clearRect(0, 0, c.width, c.height); onChange('') }}>Effacer</button>
-    </div>
     <canvas ref={ref} width="850" height="180"
       onMouseDown={start} onMouseMove={draw} onMouseUp={end} onMouseLeave={end}
       onTouchStart={start} onTouchMove={draw} onTouchEnd={end}/>
+    <button className="link-btn" onClick={() => { const c = ref.current; c.getContext('2d').clearRect(0, 0, c.width, c.height); onChange('') }}>Effacer la signature</button>
   </div>
 }

@@ -1,93 +1,111 @@
 import React, { useMemo, useState } from 'react'
-import { Plus, Search, Trash2, ChevronRight } from 'lucide-react'
-import { calcTotals, docStatus, money, STATUS_LABELS } from './store.js'
+import { Plus, Search, Settings as SettingsIcon, Inbox, X } from 'lucide-react'
+import { calcTotals, docStatus, fmtDate, lastPaymentDate, money } from './store.js'
 
-const FILTERS = {
+const TABS = {
   invoice: [
     { id: 'all', label: 'Toutes' },
-    { id: 'outstanding', label: 'Impayées' },
+    { id: 'unpaid', label: 'Non payées' },
     { id: 'paid', label: 'Payées' }
   ],
   estimate: [
     { id: 'all', label: 'Toutes' },
-    { id: 'draft', label: 'Brouillons' },
-    { id: 'sent', label: 'Envoyées' },
-    { id: 'approved', label: 'Approuvées' }
+    { id: 'open', label: 'Ouverts' },
+    { id: 'closed', label: 'Fermés' }
   ]
 }
 
-export function StatusBadge({ status }) {
-  return <span className={`badge badge-${status}`}>{STATUS_LABELS[status] || status}</span>
+export function AppBar({ title, left, right, tabs, activeTab, onTab }) {
+  return <header className="appbar no-print">
+    <div className="appbar-row">
+      <div className="appbar-side">{left}</div>
+      <h1>{title}</h1>
+      <div className="appbar-side right">{right}</div>
+    </div>
+    {tabs && <div className="appbar-tabs">
+      {tabs.map(t => (
+        <button key={t.id} className={activeTab === t.id ? 'active' : ''} onClick={() => onTab(t.id)}>{t.label}</button>
+      ))}
+    </div>}
+  </header>
 }
 
-export function DocumentList({ type, docs, onOpen, onNew, onDelete }) {
-  const [query, setQuery] = useState('')
+export function DocumentList({ type, docs, onOpen, onNew, onOpenSettings }) {
   const [filter, setFilter] = useState('all')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [query, setQuery] = useState('')
 
-  const list = useMemo(() => {
+  const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     return docs
       .filter(d => d.docType === type)
       .map(d => ({ doc: d, status: docStatus(d), totals: calcTotals(d) }))
       .filter(({ doc, status }) => {
-        if (filter === 'outstanding' && !(status === 'outstanding' || status === 'overdue')) return false
-        if (filter !== 'all' && filter !== 'outstanding' && status !== filter) return false
+        if (filter !== 'all' && status !== filter) return false
         if (!q) return true
         return [doc.number, doc.client?.name, doc.client?.email].some(v => String(v || '').toLowerCase().includes(q))
       })
       .sort((a, b) => (b.doc.date || '').localeCompare(a.doc.date || '') || (b.doc.updatedAt || '').localeCompare(a.doc.updatedAt || ''))
   }, [docs, type, query, filter])
 
-  const outstandingTotal = useMemo(() => docs
-    .filter(d => d.docType === 'invoice')
-    .map(d => ({ s: docStatus(d), t: calcTotals(d) }))
-    .filter(x => x.s === 'outstanding' || x.s === 'overdue')
-    .reduce((s, x) => s + x.t.balance, 0), [docs])
+  // Groupes par année avec total, comme dans l'app
+  const groups = useMemo(() => {
+    const map = new Map()
+    rows.forEach(r => {
+      const year = (r.doc.date || '').slice(0, 4) || '—'
+      if (!map.has(year)) map.set(year, { year, total: 0, rows: [] })
+      const g = map.get(year)
+      g.total += r.totals.total
+      g.rows.push(r)
+    })
+    return [...map.values()].sort((a, b) => b.year.localeCompare(a.year))
+  }, [rows])
 
-  const title = type === 'invoice' ? 'Invoices' : 'Estimates'
+  const title = type === 'invoice' ? 'Factures' : 'Devis'
 
   return <section className="screen">
-    <header className="screen-head">
-      <div>
-        <h1>{title}</h1>
-        {type === 'invoice' && <p className="muted">Solde impayé : <b>{money(outstandingTotal)}</b></p>}
-      </div>
-      <button className="primary" onClick={onNew}><Plus size={18}/> {type === 'invoice' ? 'New Invoice' : 'New Estimate'}</button>
-    </header>
+    <AppBar
+      title={title}
+      left={<button className="icon light" onClick={onOpenSettings}><SettingsIcon size={22}/></button>}
+      right={<button className="icon light" onClick={() => { setSearchOpen(o => !o); setQuery('') }}>{searchOpen ? <X size={22}/> : <Search size={22}/>}</button>}
+      tabs={TABS[type]}
+      activeTab={filter}
+      onTab={setFilter}
+    />
 
-    <div className="searchbar">
+    {searchOpen && <div className="searchbar">
       <Search size={17}/>
-      <input placeholder={`Chercher par client ou numéro...`} value={query} onChange={e => setQuery(e.target.value)}/>
-    </div>
-
-    <div className="chips">
-      {FILTERS[type].map(f => (
-        <button key={f.id} className={filter === f.id ? 'chip active' : 'chip'} onClick={() => setFilter(f.id)}>{f.label}</button>
-      ))}
-    </div>
+      <input autoFocus placeholder="Chercher par client ou numéro..." value={query} onChange={e => setQuery(e.target.value)}/>
+    </div>}
 
     <div className="doclist">
-      {list.length === 0 && <div className="empty">
-        <p>Aucun document ici.</p>
-        <button className="primary" onClick={onNew}><Plus size={18}/> Créer {type === 'invoice' ? 'une invoice' : 'un estimate'}</button>
+      {groups.length === 0 && <div className="empty">
+        <Inbox size={54} strokeWidth={1.2}/>
+        <p>{type === 'invoice'
+          ? 'Créez votre première facture et envoyez-la à votre client par email ou texto.'
+          : 'Informez les clients des coûts en établissant un devis que vous pourrez ensuite convertir en facture.'}</p>
       </div>}
-      {list.map(({ doc, status, totals }) => (
-        <div className="docrow" key={doc.id} onClick={() => onOpen(doc)}>
-          <div className="avatar">{(doc.client?.name || '?').trim().charAt(0).toUpperCase() || '?'}</div>
-          <div className="docinfo">
-            <b>{doc.client?.name || 'Sans client'}</b>
-            <small>{doc.number} • {doc.date}</small>
-          </div>
-          <div className="docamount">
-            <b>{money(totals.total)}</b>
-            <StatusBadge status={status}/>
-          </div>
-          <button className="icon danger" title="Supprimer" onClick={e => { e.stopPropagation(); if (confirm(`Supprimer ${doc.number} ?`)) onDelete(doc.id) }}><Trash2 size={16}/></button>
-          <ChevronRight size={18} className="chev"/>
-        </div>
-      ))}
+      {groups.map(g => <div key={g.year}>
+        <div className="year-head"><span>{g.year}</span><span>{money(g.total)}</span></div>
+        {g.rows.map(({ doc, status, totals }) => (
+          <button className="docrow" key={doc.id} onClick={() => onOpen(doc)}>
+            <div className="docinfo">
+              <b>{doc.client?.name || 'Sans client'}</b>
+              <small>{doc.number}</small>
+            </div>
+            <div className="docamount">
+              <b>{money(totals.total)}</b>
+              {status === 'paid'
+                ? <small className="paid-note">Payé le {fmtDate(lastPaymentDate(doc)) || fmtDate(doc.date)}</small>
+                : status === 'closed'
+                  ? <small className="paid-note">Fermé</small>
+                  : <small>{fmtDate(doc.date)}</small>}
+            </div>
+          </button>
+        ))}
+      </div>)}
     </div>
 
-    <button className="fab no-print" onClick={onNew}><Plus size={26}/></button>
+    <button className="fab no-print" onClick={onNew}><Plus size={28}/></button>
   </section>
 }

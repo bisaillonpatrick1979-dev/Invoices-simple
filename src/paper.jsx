@@ -1,10 +1,10 @@
 import React from 'react'
-import { lineTotal, money } from './store.js'
+import { fmtDate, lineTotal, money } from './store.js'
 
 // Le document PDF (aperçu + impression), style professionnel avec zébrures et filigrane
 export function InvoicePaper({ settings, doc, totals }) {
   const b = settings.business
-  const title = doc.docType === 'invoice' ? 'INVOICE' : 'ESTIMATE'
+  const title = doc.docType === 'invoice' ? 'FACTURE' : 'DEVIS'
   return <article className="invoice-paper" style={{ '--accent': settings.accent }}>
     <div className="watermark">{b.name}</div>
 
@@ -20,22 +20,22 @@ export function InvoicePaper({ settings, doc, totals }) {
       </div>
       <div className="invoice-meta">
         <h2>{title}</h2>
-        <p><b>No:</b> {doc.number}</p>
-        <p><b>Date:</b> {doc.date}</p>
-        {doc.dueDate && <p><b>Due:</b> {doc.dueDate}</p>}
+        <p><b>No :</b> {doc.number}</p>
+        <p><b>Date :</b> {fmtDate(doc.date)}</p>
+        {doc.dueDate && <p><b>Échéance :</b> {fmtDate(doc.dueDate)}</p>}
       </div>
     </header>
 
     <section className="pdf-parties">
       <div>
-        <h3>De / From</h3>
+        <h3>De</h3>
         <p>{b.phone}</p>
         <p>{b.email}</p>
         <p>{b.website}</p>
-        {b.gst && <p>GST: {b.gst}</p>}
+        {b.gst && <p>GST : {b.gst}</p>}
       </div>
       <div>
-        <h3>Facturé à / Bill To</h3>
+        <h3>Facturé à</h3>
         <p><b>{doc.client.name}</b></p>
         <p>{doc.client.address}</p>
         <p>{doc.client.city}</p>
@@ -46,7 +46,7 @@ export function InvoicePaper({ settings, doc, totals }) {
 
     <table className="pdf-lines">
       <thead>
-        <tr><th>Description</th><th>Qty</th><th>Unit</th><th>Price</th><th>Total</th></tr>
+        <tr><th>Description</th><th>Qté</th><th>Unité</th><th>Prix</th><th>Total</th></tr>
       </thead>
       <tbody>
         {doc.lines.map((l, i) => <tr key={l.id}>
@@ -61,25 +61,27 @@ export function InvoicePaper({ settings, doc, totals }) {
 
     <div className="pdf-bottom">
       <div className="pdf-notes">
-        <h3>Notes</h3>
-        <p>{doc.notes || 'Merci pour votre confiance.'}</p>
-        {settings.paymentInstructions && <>
-          <h3>Paiement</h3>
-          <p>{settings.paymentInstructions}</p>
+        {(doc.notes || !doc.paymentInfo) && <>
+          <h3>Remarques</h3>
+          <p>{doc.notes || 'Merci pour votre confiance.'}</p>
+        </>}
+        {doc.paymentInfo && <>
+          <h3>Info sur le paiement</h3>
+          <p>{doc.paymentInfo}</p>
         </>}
         <div className="sign-box">
           {doc.signature ? <img src={doc.signature}/> : <span>Signature client</span>}
         </div>
-        <small>Signature tactile</small>
+        <small>Signature</small>
       </div>
       <div className="pdf-totals">
-        <p><span>Subtotal</span><b>{money(totals.subtotal)}</b></p>
+        <p><span>Sous-total</span><b>{money(totals.subtotal)}</b></p>
         {totals.discount > 0 && <p><span>Remise</span><b>-{money(totals.discount)}</b></p>}
-        <p><span>{settings.taxLabel} {doc.taxRate}%</span><b>{money(totals.tax)}</b></p>
-        <p className="total"><span>Total CAD</span><b>{money(totals.total)}</b></p>
+        <p><span>{settings.taxLabel} ({doc.taxRate}%)</span><b>{money(totals.tax)}</b></p>
+        <p className="total"><span>Total</span><b>{money(totals.total)}</b></p>
         {totals.paid > 0 && <>
-          <p><span>Payé</span><b>-{money(totals.paid)}</b></p>
-          <p className="total balance"><span>Balance due</span><b>{money(totals.balance)}</b></p>
+          <p><span>Paiements</span><b>-{money(totals.paid)}</b></p>
+          <p className="total balance"><span>Solde dû</span><b>{money(totals.balance)}</b></p>
         </>}
       </div>
     </div>

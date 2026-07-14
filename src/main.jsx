@@ -1,35 +1,48 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { FileText, ClipboardList, Users, Package, BarChart3, Settings as SettingsIcon, Plus } from 'lucide-react'
-import { load, save, emptySettings, migrateOldData, newDocument, uid } from './store.js'
+import {
+  FileText, ClipboardList, Calculator, CreditCard, MoreHorizontal,
+  Users, Package, ReceiptText, BarChart3, Settings as SettingsIcon, X
+} from 'lucide-react'
+import { load, save, emptySettings, migrateOldData, newDocument } from './store.js'
 import { DocumentList } from './lists.jsx'
 import { DocumentEditor } from './editor.jsx'
-import { ClientsScreen, ItemsScreen } from './catalog.jsx'
-import { ReportsScreen } from './reports.jsx'
+import { ClientsScreen, ItemsScreen, ExpensesScreen } from './catalog.jsx'
+import { ComptaScreen, RapportsScreen, PaiementsScreen } from './compta.jsx'
 import { SettingsScreen } from './settings.jsx'
 import './styles.css'
 
 const NAV = [
-  { id: 'invoices', label: 'Invoices', icon: FileText },
-  { id: 'estimates', label: 'Estimates', icon: ClipboardList },
+  { id: 'factures', label: 'Factures', icon: FileText },
+  { id: 'devis', label: 'Devis', icon: ClipboardList },
+  { id: 'compta', label: 'Comptabilité', icon: Calculator, badge: 'Nouv.' },
+  { id: 'paiements', label: 'Paiements', icon: CreditCard },
+  { id: 'plus', label: 'Plus', icon: MoreHorizontal }
+]
+
+const PLUS_ITEMS = [
   { id: 'clients', label: 'Clients', icon: Users },
-  { id: 'items', label: 'Items', icon: Package },
-  { id: 'reports', label: 'Reports', icon: BarChart3 },
-  { id: 'settings', label: 'Settings', icon: SettingsIcon }
+  { id: 'articles', label: 'Articles', icon: Package },
+  { id: 'depenses', label: 'Dépenses', icon: ReceiptText },
+  { id: 'rapports', label: 'Rapports', icon: BarChart3 },
+  { id: 'settings', label: 'Réglages', icon: SettingsIcon }
 ]
 
 function App() {
   const [migrated] = useState(() => migrateOldData())
-  const [tab, setTab] = useState('invoices')
+  const [tab, setTab] = useState('factures')
+  const [plusOpen, setPlusOpen] = useState(false)
   const [settings, setSettings] = useState(() => migrated?.settings || load('is_settings', emptySettings))
   const [clients, setClients] = useState(() => migrated?.clients || load('is_clients', []))
   const [items, setItems] = useState(() => load('is_items', []))
+  const [expenses, setExpenses] = useState(() => load('is_expenses', []))
   const [docs, setDocs] = useState(() => migrated?.docs || load('is_docs', []))
-  const [editing, setEditing] = useState(null) // document en cours d'édition
+  const [editing, setEditing] = useState(null)
 
   useEffect(() => save('is_settings', settings), [settings])
   useEffect(() => save('is_clients', clients), [clients])
   useEffect(() => save('is_items', items), [items])
+  useEffect(() => save('is_expenses', expenses), [expenses])
   useEffect(() => save('is_docs', docs), [docs])
 
   const upsertDoc = doc => {
@@ -46,7 +59,7 @@ function App() {
   }
 
   const createDoc = type => {
-    setTab(type === 'invoice' ? 'invoices' : 'estimates')
+    setTab(type === 'invoice' ? 'factures' : 'devis')
     setEditing(newDocument(type, settings, docs))
   }
 
@@ -62,7 +75,13 @@ function App() {
       : [...list, item])
   }
 
-  const editorType = editing?.docType
+  const openTab = id => {
+    setEditing(null)
+    setPlusOpen(false)
+    if (id === 'plus') { setPlusOpen(true); return }
+    setTab(id)
+  }
+
   const screen = editing
     ? <DocumentEditor
         key={editing.id}
@@ -73,59 +92,59 @@ function App() {
         onSaveClient={upsertClient}
         onSaveItem={upsertItem}
         onChange={setEditing}
-        onSave={doc => upsertDoc(doc)}
+        onSave={upsertDoc}
         onDelete={() => deleteDoc(editing.id)}
-        onConvert={doc => {
-          const inv = { ...doc, id: uid(), docType: 'invoice', status: 'draft', payments: [] }
-          inv.number = inv.number.replace(settings.estimatePrefix, settings.invoicePrefix)
+        onConvert={inv => {
           const stored = upsertDoc(inv)
-          setTab('invoices')
+          setTab('factures')
           setEditing(stored)
         }}
+        onOpenSettings={() => { setEditing(null); setTab('settings') }}
         onClose={() => setEditing(null)}
       />
     : <>
-        {tab === 'invoices' && <DocumentList type="invoice" docs={docs} onOpen={d => setEditing(d)} onNew={() => createDoc('invoice')} onDelete={deleteDoc}/>}
-        {tab === 'estimates' && <DocumentList type="estimate" docs={docs} onOpen={d => setEditing(d)} onNew={() => createDoc('estimate')} onDelete={deleteDoc}/>}
-        {tab === 'clients' && <ClientsScreen clients={clients} setClients={setClients}/>}
-        {tab === 'items' && <ItemsScreen items={items} setItems={setItems}/>}
-        {tab === 'reports' && <ReportsScreen docs={docs}/>}
-        {tab === 'settings' && <SettingsScreen settings={settings} setSettings={setSettings}/>}
+        {tab === 'factures' && <DocumentList type="invoice" docs={docs} onOpen={setEditing} onNew={() => createDoc('invoice')} onOpenSettings={() => setTab('settings')}/>}
+        {tab === 'devis' && <DocumentList type="estimate" docs={docs} onOpen={setEditing} onNew={() => createDoc('estimate')} onOpenSettings={() => setTab('settings')}/>}
+        {tab === 'compta' && <ComptaScreen docs={docs} expenses={expenses} onOpenSettings={() => setTab('settings')}/>}
+        {tab === 'paiements' && <PaiementsScreen onOpenSettings={() => setTab('settings')}/>}
+        {tab === 'clients' && <ClientsScreen clients={clients} setClients={setClients} onBack={() => setTab('factures')}/>}
+        {tab === 'articles' && <ItemsScreen items={items} setItems={setItems} onBack={() => setTab('factures')}/>}
+        {tab === 'depenses' && <ExpensesScreen expenses={expenses} setExpenses={setExpenses} onBack={() => setTab('factures')}/>}
+        {tab === 'rapports' && <RapportsScreen docs={docs} onBack={() => setTab('factures')}/>}
+        {tab === 'settings' && <SettingsScreen settings={settings} setSettings={setSettings} onBack={() => setTab('factures')}/>}
       </>
+
+  const activeNav = editing
+    ? (editing.docType === 'invoice' ? 'factures' : 'devis')
+    : (['clients', 'articles', 'depenses', 'rapports', 'settings'].includes(tab) ? 'plus' : tab)
 
   return (
     <div className="app">
-      <aside className="sidebar no-print">
-        <div className="brand-mark">
-          <span className="brand-icon"><FileText size={20}/></span>
-          <span className="brand-name">Invoices <b>Simple</b></span>
-        </div>
-        <nav>
-          {NAV.map(n => (
-            <button
-              key={n.id}
-              className={tab === n.id && !editing ? 'active' : (editing && ((n.id === 'invoices' && editorType === 'invoice') || (n.id === 'estimates' && editorType === 'estimate')) ? 'active' : '')}
-              onClick={() => { setEditing(null); setTab(n.id) }}
-            >
-              <n.icon size={20}/><span>{n.label}</span>
+      <div className="phone">{screen}</div>
+
+      {plusOpen && <div className="sheet-backdrop no-print" onClick={() => setPlusOpen(false)}>
+        <div className="sheet" onClick={e => e.stopPropagation()}>
+          <div className="sheet-head">
+            <span/>
+            <button className="icon" onClick={() => setPlusOpen(false)}><X size={20}/></button>
+          </div>
+          {PLUS_ITEMS.map(it => (
+            <button key={it.id} className="sheet-row" onClick={() => { setPlusOpen(false); setEditing(null); setTab(it.id) }}>
+              <it.icon size={21}/>
+              <span>{it.label}</span>
             </button>
           ))}
-        </nav>
-        <button className="sidebar-new" onClick={() => createDoc(tab === 'estimates' ? 'estimate' : 'invoice')}>
-          <Plus size={18}/> {tab === 'estimates' ? 'New Estimate' : 'New Invoice'}
-        </button>
-      </aside>
-
-      <main className="content">{screen}</main>
+        </div>
+      </div>}
 
       <nav className="bottombar no-print">
         {NAV.map(n => (
-          <button
-            key={n.id}
-            className={tab === n.id && !editing ? 'active' : ''}
-            onClick={() => { setEditing(null); setTab(n.id) }}
-          >
-            <n.icon size={21}/><span>{n.label}</span>
+          <button key={n.id} className={activeNav === n.id && !plusOpen ? 'active' : ''} onClick={() => openTab(n.id)}>
+            <span className="nav-ico">
+              <n.icon size={22}/>
+              {n.badge && <span className="nav-badge">{n.badge}</span>}
+            </span>
+            <span>{n.label}</span>
           </button>
         ))}
       </nav>
