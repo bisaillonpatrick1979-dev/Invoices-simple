@@ -11,7 +11,12 @@ import { ClientsScreen, ItemsScreen, ExpensesScreen } from './catalog.jsx'
 import { ComptaScreen, RapportsScreen, PaiementsScreen } from './compta.jsx'
 import { SettingsScreen } from './settings.jsx'
 import { AssistantScreen } from './assistant.jsx'
+import { useCloudSync } from './cloudui.jsx'
 import './styles.css'
+
+// Une modification n'est pas envoyée tout de suite : sur un chantier, on
+// enchaîne les touches, et une synchro par frappe ne servirait à rien.
+const SYNC_DELAY = 3000
 
 const NAV = [
   { id: 'factures', label: 'Factures', icon: FileText },
@@ -40,6 +45,7 @@ function App() {
   const [expenses, setExpenses] = useState(() => load('is_expenses', []))
   const [docs, setDocs] = useState(() => migrated?.docs || load('is_docs', []))
   const [editing, setEditing] = useState(null)
+  const [dirty, setDirty] = useState(0)
 
   useEffect(() => save('is_settings', settings), [settings])
   useEffect(() => save('is_clients', clients), [clients])
@@ -47,7 +53,31 @@ function App() {
   useEffect(() => save('is_expenses', expenses), [expenses])
   useEffect(() => save('is_docs', docs), [docs])
 
+  // Ce que la synchro rapporte du nuage remplace ce qui est en mémoire. Ça ne
+  // touche pas `dirty` : sinon chaque synchro en déclencherait une autre.
+  const applyCloud = r => {
+    if (r.docs) setDocs(r.docs)
+    if (r.clients) setClients(r.clients)
+    if (r.items) setItems(r.items)
+    if (r.expenses) setExpenses(r.expenses)
+    if (r.settings) setSettings(mergeSettings(r.settings))
+  }
+
+  const cloud = useCloudSync({ settings, clients, items, expenses, docs }, applyCloud)
+
+  const touch = () => setDirty(n => n + 1)
+  // Les écrans de listes reçoivent le vrai setter : on l'enveloppe pour savoir
+  // qu'il y a du neuf à envoyer, sans rien changer à leur code.
+  const tracked = setter => value => { touch(); setter(value) }
+
+  useEffect(() => {
+    if (!dirty || !cloud.user) return
+    const t = setTimeout(() => cloud.sync(), SYNC_DELAY)
+    return () => clearTimeout(t)
+  }, [dirty, cloud.user?.id])
+
   const upsertDoc = doc => {
+    touch()
     const stamped = { ...doc, updatedAt: new Date().toISOString() }
     setDocs(list => list.some(d => d.id === stamped.id)
       ? list.map(d => d.id === stamped.id ? stamped : d)
@@ -58,6 +88,7 @@ function App() {
   }
 
   const deleteDoc = id => {
+    touch()
     setDocs(list => list.filter(d => d.id !== id))
     if (editing?.id === id) setEditing(null)
   }
@@ -68,12 +99,14 @@ function App() {
   }
 
   const upsertClient = client => {
+    touch()
     setClients(list => list.some(c => c.id === client.id)
       ? list.map(c => c.id === client.id ? client : c)
       : [...list, client])
   }
 
   const upsertItem = item => {
+    touch()
     setItems(list => list.some(i => i.id === item.id)
       ? list.map(i => i.id === item.id ? item : i)
       : [...list, item])
@@ -81,6 +114,7 @@ function App() {
 
   // L'assistant peut proposer plusieurs prix d'un coup
   const addItems = list => {
+    touch()
     setItems(cur => mergeItemsFromLines(cur, list))
     return list.length
   }
@@ -117,9 +151,9 @@ function App() {
         {tab === 'devis' && <DocumentList type="estimate" docs={docs} onOpen={setEditing} onNew={() => createDoc('estimate')} onOpenSettings={() => setTab('settings')}/>}
         {tab === 'compta' && <ComptaScreen docs={docs} expenses={expenses} onOpenSettings={() => setTab('settings')}/>}
         {tab === 'paiements' && <PaiementsScreen onOpenSettings={() => setTab('settings')}/>}
-        {tab === 'clients' && <ClientsScreen clients={clients} setClients={setClients} onBack={() => setTab('factures')}/>}
-        {tab === 'articles' && <ItemsScreen items={items} setItems={setItems} onBack={() => setTab('factures')}/>}
-        {tab === 'depenses' && <ExpensesScreen expenses={expenses} setExpenses={setExpenses} onBack={() => setTab('factures')}/>}
+        {tab === 'clients' && <ClientsScreen clients={clients} setClients={tracked(setClients)} onBack={() => setTab('factures')}/>}
+        {tab === 'articles' && <ItemsScreen items={items} setItems={tracked(setItems)} onBack={() => setTab('factures')}/>}
+        {tab === 'depenses' && <ExpensesScreen expenses={expenses} setExpenses={tracked(setExpenses)} onBack={() => setTab('factures')}/>}
         {tab === 'rapports' && <RapportsScreen docs={docs} onBack={() => setTab('factures')}/>}
         {tab === 'assistant' && <AssistantScreen
           settings={settings}
@@ -133,7 +167,7 @@ function App() {
           onOpenSettings={() => setTab('settings')}
           onBack={() => setTab('factures')}
         />}
-        {tab === 'settings' && <SettingsScreen settings={settings} setSettings={setSettings} onBack={() => setTab('factures')}/>}
+        {tab === 'settings' && <SettingsScreen settings={settings} setSettings={tracked(setSettings)} cloud={cloud} onBack={() => setTab('factures')}/>}
       </>
 
   const activeNav = editing

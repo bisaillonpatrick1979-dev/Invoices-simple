@@ -232,6 +232,38 @@ export function calcTotals(doc) {
   return { subtotal, discount, tax, total, paid, balance }
 }
 
+// Texte du courriel envoyé au client — partagé par l'éditeur et l'assistant
+export function buildEmailBody(settings, doc, totals) {
+  const b = settings.business
+  const kind = doc.docType === 'invoice' ? 'facture' : 'devis'
+  const lineText = doc.lines
+    .filter(l => l.description || l.qty || l.rate)
+    .map(l => `- ${l.description || 'Article'} | ${l.qty || 0} ${l.unit || ''} x ${money(l.rate)} = ${money(lineTotal(l))}`)
+    .join('\n')
+  return (
+`Bonjour ${doc.client.name || ''},
+
+Voici votre ${kind} ${doc.number}.
+
+${lineText || 'Détails à venir.'}
+
+Sous-total : ${money(totals.subtotal)}
+Remise : -${money(totals.discount)}
+${settings.taxLabel} (${doc.taxRate}%) : ${money(totals.tax)}
+Total : ${money(totals.total)}
+${totals.paid > 0 ? `Paiements : ${money(totals.paid)}\nSolde dû : ${money(totals.balance)}\n` : ''}
+Note : pour joindre le PDF, cliquez d'abord sur PDF / Save as PDF, puis attachez le fichier dans votre email.
+
+Merci,
+${b.name}
+${b.phone || ''}
+${b.email || ''}`)
+}
+
+// Le texto dit l'essentiel : le PDF suit par courriel ou de la main à la main.
+export const buildSmsBody = (settings, doc, totals) =>
+  `Bonjour ${doc.client.name || ''}, votre ${doc.docType === 'invoice' ? 'facture' : 'devis'} ${doc.number} de ${money(totals.total)} est prête. ${settings.business.name}`
+
 export function docStatus(doc) {
   const { total, balance } = calcTotals(doc)
   if (doc.docType === 'estimate') return doc.closed ? 'closed' : 'open'

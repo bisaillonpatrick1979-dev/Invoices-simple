@@ -117,9 +117,53 @@ Le dernier choix accepte n'importe quelle API au format OpenAI : il suffit d'ent
 
 Revenus, encaissements, soldes dus et dépenses sont calculés en JavaScript, puis transmis au modèle déjà faits. Le modèle les met en phrase, il ne les additionne pas — un modèle qui compte des montants se trompe.
 
+### Envoyer la facture au client
+
+« Envoie la facture de Marc par courriel », « envoie-la par texto ». L'assistant retrouve le document (par son numéro, ou celui monté dans la conversation), écrit le message avec le détail des lignes et les totaux, et propose une carte **Préparer**.
+
+La touche sur *Préparer* ouvre ton app de courriel ou de texto avec tout écrit dedans — **c'est toi qui appuies sur Envoyer**. Rien ne part sur la seule parole du modèle : tant que tu n'as pas touché la carte, la facture n'est même pas marquée comme envoyée. Une fois ouverte, l'envoi est noté dans l'historique de la facture.
+
+S'il manque l'adresse courriel ou le numéro de téléphone du client, il le dit au lieu d'essayer.
+
 ### Ce qu'il ne fait pas tout seul
 
-Il **prépare** la facture et l'ouvre pour révision ; il ne l'envoie pas au client. Envoyer une facture est irréversible et se fait en une touche depuis l'éditeur, une fois que tu as vérifié.
+Il **prépare** la facture et l'ouvre pour révision ; il ne l'envoie jamais sans que tu appuies. Envoyer une facture est irréversible, alors la dernière touche reste la tienne.
+
+## Sauvegarde infonuagique (Supabase)
+
+**Réglages → Sauvegarde infonuagique.** Sans compte, l'app marche exactement comme avant : tout reste dans le navigateur. Avec un compte, les mêmes données sont aussi copiées dans le projet Supabase **Hailite-manager**, et suivent d'un appareil à l'autre.
+
+### Les deux apps ne se mélangent pas
+
+Hailite Manager a déjà des tables `documents`, `clients`, `catalog_items` dans le schéma `public`, pour un tout autre modèle de données. Invoices Simple écrit dans **son propre schéma `invoices_simple`** :
+
+| Table | Contenu |
+|---|---|
+| `invoices_simple.documents` | factures et devis (le document complet en `jsonb`, plus numéro/date/client/total/solde en colonnes pour chercher en SQL) |
+| `invoices_simple.clients` | clients |
+| `invoices_simple.items` | catalogue de prix |
+| `invoices_simple.expenses` | dépenses |
+| `invoices_simple.settings` | réglages de l'entreprise |
+
+Aucun nom ne se marche dessus, et une requête du manager ne peut pas tomber sur une facture de Invoices Simple.
+
+### Une manip à faire une seule fois
+
+Supabase ne sert par son API que les schémas déclarés. Dans le tableau de bord du projet : **Project Settings → API → Exposed schemas → ajouter `invoices_simple`**. Sans ça, l'app affiche exactement cette consigne au lieu d'une erreur obscure.
+
+### Le compte
+
+Courriel + mot de passe (Supabase Auth). Les politiques RLS ne laissent voir à un compte que ses propres lignes : la clé publique dans le code de l'app **ne donne rien** à quelqu'un qui n'est pas connecté. C'est pour ça qu'elle peut être dans le code.
+
+La **clé API de l'assistant IA ne monte jamais** dans le nuage. Elle a été saisie sur cet appareil, elle y reste.
+
+### Comment la synchro se comporte
+
+- **Local d'abord.** Tout est écrit dans le navigateur en premier. Sans réseau sur un chantier, rien ne bloque ; la synchro repart au signal suivant.
+- **Trois secondes après ta dernière modification**, ce qui a bougé monte. Pas à chaque frappe.
+- **Ce qui a changé seulement.** L'app garde l'empreinte de la dernière synchro : une ligne qui n'a bougé nulle part ne génère aucun trafic, et une facture n'est redescendue avec ses photos que si elle a vraiment changé ailleurs.
+- **Les suppressions voyagent.** Une facture effacée sur le téléphone est marquée supprimée dans la base, pour que le portable l'enlève aussi — au lieu de la faire réapparaître.
+- **Si la même ligne a changé des deux bords**, c'est l'appareil que tu as en main qui gagne. Et une ligne supprimée ailleurs mais retouchée ici revit plutôt que de perdre ton travail.
 
 ## Bulle « + » déplaçable
 

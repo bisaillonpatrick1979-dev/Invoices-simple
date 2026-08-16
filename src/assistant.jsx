@@ -1,9 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft, Send, ImagePlus, Camera, Mic, MicOff, X, Sparkles,
-  FileText, Package, Settings as SettingsIcon, Headphones
+  FileText, Package, Mail, Settings as SettingsIcon, Headphones
 } from 'lucide-react'
-import { emptyClient, money, newDocument, readImageFile, uid } from './store.js'
+import {
+  buildEmailBody, buildSmsBody, calcTotals, emptyClient, money, newDocument,
+  readImageFile, uid, withEvent
+} from './store.js'
 import { askAi, buildSystemPrompt, parseAction, splitDataUrl } from './ai.js'
 import { dictationSupported, speak, stopSpeaking, useDictation } from './voice.js'
 import { AppBar } from './lists.jsx'
@@ -182,9 +185,61 @@ export function AssistantScreen({
       return text
     }
 
+    if (action === 'send') {
+      const wanted = String(data.number || '').trim().toLowerCase()
+      const doc = (wanted && docs.find(d => String(d.number).toLowerCase() === wanted)) || draftRef.current
+      if (!doc) {
+        const text = reply || "Je ne vois pas de quelle facture tu parles. Donne-moi son numéro."
+        push({ role: 'ai', text })
+        return text
+      }
+      const bySms = data.channel === 'sms'
+      const to = bySms ? doc.client?.phone : doc.client?.email
+      if (!String(to || '').trim()) {
+        const text = bySms
+          ? `${doc.number} n'a pas de numéro de téléphone pour ${doc.client?.name || 'ce client'}. Ajoute-le dans la facture et redemande-moi.`
+          : `${doc.number} n'a pas d'adresse courriel pour ${doc.client?.name || 'ce client'}. Ajoute-la dans la facture et redemande-moi.`
+        push({ role: 'ai', text })
+        return text
+      }
+      // L'app prépare le message ; c'est une touche de l'utilisateur qui
+      // l'ouvre, et une deuxième qui l'envoie depuis son app de courriel.
+      // Rien ne part sur la seule parole du modèle.
+      const text = reply || `${doc.number} est prête à partir à ${to}. Appuie pour ouvrir le message.`
+      push({
+        role: 'ai',
+        text,
+        card: {
+          kind: 'send',
+          title: bySms ? `Texto à ${to}` : `Courriel à ${to}`,
+          detail: `${doc.number} • ${money(calcTotals(doc).total)} — tu appuies sur Envoyer dans ton app`,
+          openLabel: 'Préparer',
+          onOpen: () => openSend(doc, bySms)
+        }
+      })
+      return text
+    }
+
     const text = reply || "Je n'ai pas compris la demande."
     push({ role: 'ai', text })
     return text
+  }
+
+  // Ouvre l'app de courriel ou de texto avec le message déjà écrit, et note
+  // l'envoi dans l'historique de la facture.
+  const openSend = (doc, bySms) => {
+    const totals = calcTotals(doc)
+    const saved = onCreateDoc(withEvent(
+      { ...doc, status: 'sent' },
+      bySms ? 'Envoyée par texto (assistant)' : 'Envoyée par email (assistant)'
+    ))
+    const body = encodeURIComponent(bySms ? buildSmsBody(settings, saved, totals) : buildEmailBody(settings, saved, totals))
+    if (bySms) {
+      window.location.href = `sms:${saved.client.phone}?&body=${body}`
+      return
+    }
+    const subject = encodeURIComponent(`${saved.number} - ${settings.business.name}`)
+    window.location.href = `mailto:${saved.client.email}?subject=${subject}&body=${body}`
   }
 
   // Les tours passés repartent au modèle pour qu'il suive la conversation.
@@ -278,12 +333,14 @@ export function AssistantScreen({
         </div>}
         {m.text && <p>{m.text}</p>}
         {m.card && <div className="ai-card">
-          <span className="ai-card-ico">{m.card.kind === 'invoice' ? <FileText size={20}/> : <Package size={20}/>}</span>
+          <span className="ai-card-ico">
+            {m.card.kind === 'invoice' ? <FileText size={20}/> : m.card.kind === 'send' ? <Mail size={20}/> : <Package size={20}/>}
+          </span>
           <div className="row-text">
             <b>{m.card.title}</b>
             <small>{m.card.detail}</small>
           </div>
-          {m.card.onOpen && <button className="link-btn" onClick={m.card.onOpen}>Ouvrir</button>}
+          {m.card.onOpen && <button className="link-btn" onClick={m.card.onOpen}>{m.card.openLabel || 'Ouvrir'}</button>}
         </div>}
       </div>)}
 

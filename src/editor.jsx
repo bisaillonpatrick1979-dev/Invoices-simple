@@ -4,8 +4,8 @@ import {
   Mail, MessageSquare, Printer, Clock, X, Maximize2, PenLine, Eye
 } from 'lucide-react'
 import {
-  calcTotals, docStatus, fmtDate, lineTotal, money, newLine, suggestItems,
-  uid, today, emptyClient, withEvent, UNITS
+  buildEmailBody, buildSmsBody, calcTotals, docStatus, fmtDate, lineTotal, money,
+  newLine, suggestItems, uid, today, emptyClient, withEvent, UNITS
 } from './store.js'
 import { AppBar } from './lists.jsx'
 import { InvoicePaper } from './paper.jsx'
@@ -52,33 +52,6 @@ function Row({ children, onClick, chevron, bold, className = '' }) {
   </Tag>
 }
 
-function buildEmailBody(settings, doc, totals) {
-  const b = settings.business
-  const kind = doc.docType === 'invoice' ? 'facture' : 'devis'
-  const lineText = doc.lines
-    .filter(l => l.description || l.qty || l.rate)
-    .map(l => `- ${l.description || 'Article'} | ${l.qty || 0} ${l.unit || ''} x ${money(l.rate)} = ${money(lineTotal(l))}`)
-    .join('\n')
-  return (
-`Bonjour ${doc.client.name || ''},
-
-Voici votre ${kind} ${doc.number}.
-
-${lineText || 'Détails à venir.'}
-
-Sous-total : ${money(totals.subtotal)}
-Remise : -${money(totals.discount)}
-${settings.taxLabel} (${doc.taxRate}%) : ${money(totals.tax)}
-Total : ${money(totals.total)}
-${totals.paid > 0 ? `Paiements : ${money(totals.paid)}\nSolde dû : ${money(totals.balance)}\n` : ''}
-Note : pour joindre le PDF, cliquez d'abord sur PDF / Save as PDF, puis attachez le fichier dans votre email.
-
-Merci,
-${b.name}
-${b.phone || ''}
-${b.email || ''}`)
-}
-
 export function DocumentEditor({ doc, settings, clients, items, onChange, onSave, onDelete, onConvert, onSaveClient, onSaveItem, onOpenSettings, onClose }) {
   const [view, setView] = useState('edit')
   const [sendOpen, setSendOpen] = useState(false)
@@ -111,7 +84,7 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
   const sendSms = () => {
     if (!doc.client.phone?.trim()) return alert('Ajoute un numéro de téléphone au client avant d’envoyer par texto.')
     const saved = persist(withEvent({ ...doc, status: 'sent' }, 'Envoyée par texto'))
-    const body = encodeURIComponent(`Bonjour ${saved.client.name || ''}, votre ${isInvoice ? 'facture' : 'devis'} ${saved.number} de ${money(totals.total)} est prête. ${settings.business.name}`)
+    const body = encodeURIComponent(buildSmsBody(settings, saved, totals))
     window.location.href = `sms:${saved.client.phone}?&body=${body}`
     setSendOpen(false)
   }

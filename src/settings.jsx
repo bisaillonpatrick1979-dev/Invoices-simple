@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
-import { ArrowLeft, Eye, Sparkles } from 'lucide-react'
+import { ArrowLeft, Cloud, Eye, Sparkles } from 'lucide-react'
 import { defaultWatermark, emptySettings, readImageFile, sampleDocument } from './store.js'
 import { AI_PROVIDERS, aiProvider, askAi } from './ai.js'
+import { CloudSection } from './cloudui.jsx'
 import { AppBar } from './lists.jsx'
 import { PaperPreview, Watermark } from './paper.jsx'
 
@@ -22,7 +23,7 @@ const WM_MODES = [{ id: 'logo', label: 'Logo' }, { id: 'text', label: 'Texte' },
 // Poids approximatif d'une image en data URL (base64 = 4/3 des octets)
 const dataUrlWeight = src => `${Math.round((String(src).length * 0.75) / 1024)} ko`
 
-export function SettingsScreen({ settings, setSettings, onBack }) {
+export function SettingsScreen({ settings, setSettings, cloud, onBack }) {
   const b = settings.business
   const wm = { ...defaultWatermark, ...(settings.watermark || {}) }
   const [logoError, setLogoError] = useState('')
@@ -152,6 +153,11 @@ export function SettingsScreen({ settings, setSettings, onBack }) {
         {aiTest && <p className={aiTest.state === 'err' ? 'hint small-note ai-test err' : 'hint small-note ai-test'}>{aiTest.text}</p>}
         {ai.apiKey && <button className="link-btn" onClick={() => { setAiTest(null); setAi({ apiKey: '' }) }}>Retirer la clé de cet appareil</button>}
       </div>
+
+      {cloud && <div className="edit-card padded">
+        <h2 className="section-title"><Cloud size={17}/> Sauvegarde infonuagique</h2>
+        <CloudSection user={cloud.user} state={cloud.state} sync={cloud.sync} onSignedOut={() => cloud.setUser(null)}/>
+      </div>}
 
       <div className="edit-card padded">
         <h2 className="section-title">Taxe & documents</h2>

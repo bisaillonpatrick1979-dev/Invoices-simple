@@ -206,6 +206,22 @@ ${lines || '(aucune ligne)'}
 Si la personne corrige ou complète CETTE facture-là, renvoie "action":"invoice" avec "update":true et la liste COMPLÈTE des lignes (celles d'avant plus les nouvelles, ou corrigées). Sans "update":true, une deuxième facture serait créée.`
 }
 
+// Les derniers documents, pour qu'« envoie la facture de Marc » désigne
+// quelque chose de précis plutôt qu'un numéro inventé.
+const docsBlock = docs => {
+  const recent = [...docs]
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+    .slice(0, 15)
+    .map(d => {
+      const t = calcTotals(d)
+      const who = d.client?.name || 'sans client'
+      const joignable = [d.client?.email ? 'courriel' : '', d.client?.phone ? 'texto' : ''].filter(Boolean).join(' et ')
+      return `- ${d.number} | ${d.docType === 'invoice' ? 'facture' : 'devis'} | ${d.date} | ${who} | ${money(t.total)} | ${docStatus(d) === 'paid' ? 'payée' : `dû ${money(t.balance)}`} | ${joignable || 'aucune coordonnée'}`
+    })
+    .join('\n')
+  return recent || '(aucun document)'
+}
+
 export function buildSystemPrompt({ settings, docs, expenses, clients, items, draft }) {
   const b = settings.business
   const facts = businessFacts(docs, expenses)
@@ -227,6 +243,9 @@ ${catalog || '(catalogue vide)'}
 Clients enregistrés :
 ${clientList || '(aucun client enregistré)'}
 
+Derniers documents (numéro | type | date | client | total | solde | par où le client est joignable) :
+${docsBlock(docs)}
+
 ${draftBlock(draft)}
 
 Tu réponds UNIQUEMENT avec un objet JSON, sans texte autour et sans bloc de code. Formes possibles :
@@ -239,6 +258,12 @@ Tu réponds UNIQUEMENT avec un objet JSON, sans texte autour et sans bloc de cod
 
 3) Répondre à une question (chiffres, état de compte, conseil) :
 {"action":"answer","reply":"ta réponse"}
+
+4) Envoyer une facture ou un devis au client (« envoie-la à Marc », « envoie la facture par texto ») :
+{"action":"send","reply":"phrase courte","number":"le numéro exact du document","channel":"email"}
+- "channel" vaut "email" ou "sms".
+- Sans numéro donné, c'est le document monté dans cette conversation.
+- L'application prépare le message et l'ouvre dans l'app de courriel ou de texto : c'est l'utilisateur qui appuie sur Envoyer. Dis-le dans "reply".
 
 Règles :
 - Reprends les prix du catalogue quand la description correspond, au lieu d'en inventer.
