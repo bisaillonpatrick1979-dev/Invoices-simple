@@ -166,6 +166,9 @@ export const newDocument = (type, settings, docs) => ({
   dueDate: '',
   clientId: '',
   client: { ...emptyClient },
+  // Une facture par chantier : l'adresse des travaux, qui n'est pas toujours
+  // celle du client (propriétaire absent, gestionnaire, assureur…).
+  siteAddress: '',
   lines: [],
   chargeTax: settings.taxDefault,
   taxRate: settings.taxRate,
@@ -190,6 +193,7 @@ export function sampleDocument(settings) {
     ...newDocument('invoice', settings, []),
     number: `${settings.invoicePrefix}0001`,
     dueDate: '',
+    siteAddress: '456, avenue des Érables, Calgary, AB',
     client: {
       ...emptyClient,
       name: 'Client Exemple inc.',
@@ -208,6 +212,21 @@ export function sampleDocument(settings) {
     history: []
   }
 }
+
+// Une facture à peine ouverte, encore vide, ne mérite pas d'être gardée : elle
+// polluerait la liste et brûlerait un numéro. Dès qu'il y a un client, une
+// adresse de chantier, une ligne, une photo ou une signature, c'est du travail
+// qu'on ne veut plus jamais perdre.
+export const hasDraftContent = doc => Boolean(
+  doc && (
+    String(doc.client?.name || '').trim() ||
+    String(doc.siteAddress || '').trim() ||
+    (doc.lines || []).some(l => String(l.description || '').trim() || Number(l.rate) > 0) ||
+    (doc.photos || []).length ||
+    (doc.payments || []).length ||
+    doc.signature
+  )
+)
 
 export const withEvent = (doc, label) => ({
   ...doc,
@@ -244,7 +263,7 @@ export function buildEmailBody(settings, doc, totals) {
 `Bonjour ${doc.client.name || ''},
 
 Voici votre ${kind} ${doc.number}.
-
+${doc.siteAddress ? `\nTravaux au : ${doc.siteAddress}\n` : ''}
 ${lineText || 'Détails à venir.'}
 
 Sous-total : ${money(totals.subtotal)}

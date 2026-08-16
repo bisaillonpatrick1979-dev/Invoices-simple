@@ -816,6 +816,23 @@ button.primary.wide { width: 100%; margin-top: 12px; }
 }
 .pdf-parties p { margin: 2px 0; font-size: 13.5px; white-space: pre-line; }
 
+/* Adresse du chantier : encadrée pour que le client repère du premier coup
+   d'œil quel chantier il paie. */
+.pdf-site {
+  margin: 0 0 18px;
+  padding: 9px 12px;
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.pdf-site h3 {
+  margin: 0 0 3px;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent);
+}
+.pdf-site p { margin: 0; font-size: 13.5px; white-space: pre-line; font-weight: 600; }
+
 .pdf-lines { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13.5px; }
 .pdf-lines th {
   /* translucide pour laisser voir le filigrane ; la 1re règle sert de repli
@@ -967,6 +984,9 @@ button.primary.wide { width: 100%; margin-top: 12px; }
 /* quatre boutons autour du champ : le rembourrage reste serré pour que le
    texte garde de la place sur un écran de téléphone */
 .chat-row > .icon, .chat-row > label.icon { flex: none; padding: 8px; cursor: pointer; }
+
+/* icône en tête de rangée (chantier) */
+.row-ico { display: inline-flex; color: var(--blue); margin-right: 8px; vertical-align: -3px; }
 
 /* ===== Bulle de l'assistant, sur tous les écrans ===== */
 .ai-fab {

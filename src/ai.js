@@ -201,7 +201,7 @@ const draftBlock = draft => {
   const lines = draft.lines
     .map(l => `- ${l.description} | ${l.qty} ${l.unit || 'ea'} × ${Number(l.rate || 0)} $${l.taxable === false ? ' | non taxable' : ''}`)
     .join('\n')
-  return `Facture montée à l'instant dans cette conversation : ${draft.number}${draft.client?.name ? ` pour ${draft.client.name}` : ''}
+  return `Facture montée à l'instant dans cette conversation : ${draft.number}${draft.client?.name ? ` pour ${draft.client.name}` : ''}${draft.siteAddress ? ` — chantier : ${draft.siteAddress}` : ''}
 ${lines || '(aucune ligne)'}
 Si la personne corrige ou complète CETTE facture-là, renvoie "action":"invoice" avec "update":true et la liste COMPLÈTE des lignes (celles d'avant plus les nouvelles, ou corrigées). Sans "update":true, une deuxième facture serait créée.`
 }
@@ -251,7 +251,8 @@ ${draftBlock(draft)}
 Tu réponds UNIQUEMENT avec un objet JSON, sans texte autour et sans bloc de code. Formes possibles :
 
 1) Créer une facture (l'utilisateur décrit un travail fait, ou envoie une photo/capture d'une liste de travaux) :
-{"action":"invoice","reply":"phrase courte pour l'utilisateur","client":{"name":"","address":"","city":"","phone":"","email":""},"lines":[{"description":"","qty":1,"unit":"ea","rate":0,"taxable":true}],"notes":"","update":false}
+{"action":"invoice","reply":"phrase courte pour l'utilisateur","client":{"name":"","address":"","city":"","phone":"","email":""},"siteAddress":"adresse du chantier","lines":[{"description":"","qty":1,"unit":"ea","rate":0,"taxable":true}],"notes":"","update":false}
+- "siteAddress" est l'adresse où les travaux ont été faits (« j'ai fait le 123 rue Principale »). C'est une facture par chantier, et elle est imprimée sur la facture. Ce n'est pas forcément l'adresse du client : laisse vide si elle n'est pas dite.
 
 2) Ajouter des prix au catalogue (l'utilisateur envoie une liste de prix) :
 {"action":"items","reply":"phrase courte","items":[{"description":"","unit":"pi²","rate":0,"taxable":true}]}

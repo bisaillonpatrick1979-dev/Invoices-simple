@@ -173,6 +173,7 @@ export function AssistantScreen({
         ...(previous || newDocument('invoice', settings, docs)),
         // une correction qui ne reparle pas du client garde celui d'avant
         client: client.name || !previous ? client : previous.client,
+        siteAddress: String(data.siteAddress || previous?.siteAddress || '').slice(0, 200),
         lines,
         notes: String(data.notes || previous?.notes || settings.defaultNotes || '').slice(0, 1000)
       }

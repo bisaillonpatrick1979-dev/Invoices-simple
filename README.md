@@ -14,7 +14,7 @@ Application de facturation avec une interface calquée sur les captures d'écran
 
 Onglets **Modifier / Aperçu / Historique** comme l'app de référence :
 
-- **Modifier** : numéro, date, rangée « À Client » (avec clients en mémoire), articles (qté × prix, taxable par ligne, catalogue d'articles), Sous-total, Remise ($ ou %), Gst 5 % (nom et taux modifiables), Total, Paiements, **Solde dû**, Planification des paiements (paiements partiels), Ajouter une photo, Info sur le paiement, Remarques, Signature tactile, bouton « Marquer comme payée »
+- **Modifier** : numéro, date, rangée « À Client » (avec clients en mémoire), **Chantier** (adresse des travaux), articles (qté × prix, taxable par ligne, catalogue d'articles), Sous-total, Remise ($ ou %), Gst 5 % (nom et taux modifiables), Total, Paiements, **Solde dû**, Planification des paiements (paiements partiels), Ajouter une photo, Info sur le paiement, Remarques, Signature tactile, bouton « Marquer comme payée »
 - **Aperçu** : la facture PDF (logo, filigrane, zébrures, couleur au choix) avec bouton plein écran / impression
 - **Historique** : chaque enregistrement, envoi, paiement est journalisé
 - Bouton flottant **Envoyer** : Email, Texto ou PDF
@@ -43,6 +43,22 @@ Le filigrane est répété sur chaque page à l'impression.
 Le bouton **Voir un aperçu de la facture**, au bas des réglages, ouvre une **facture d'exemple** (client et articles fictifs) montée avec tes réglages du moment : logo, filigrane, couleur, taxe, remarques. Ça permet de juger le rendu final sans créer de vraie facture — rien n'est enregistré. Le bouton d'impression de cette fenêtre ne sort que la facture, pas l'écran des réglages.
 
 Dans l'éditeur, le bouton **Envoyer** propose **Aperçu PDF** en premier : de quoi vérifier la facture telle qu'elle sortira avant de l'envoyer par email ou texto.
+
+## Adresse du chantier
+
+Une facture par chantier : la rangée **Chantier**, sous le client, porte l'adresse des travaux. Elle sort sur le PDF dans un encadré entre le client et les lignes, pour que le payeur voie du premier coup d'œil **quel chantier il paie** — utile quand le client a plusieurs adresses, ou quand celui qui paie (gestionnaire, assureur, propriétaire absent) n'habite pas là où le travail a été fait.
+
+Un bouton **Reprendre l'adresse du client** évite de la retaper quand c'est la même. L'adresse part aussi dans le courriel envoyé au client, et l'assistant IA la remplit si tu la dis (« j'ai fait le 789 rue des Pins »).
+
+## Rien ne se perd
+
+**Une facture en cours s'enregistre toute seule**, sans bouton à toucher :
+
+- Tu changes d'onglet, tu ouvres les réglages, tu retournes en arrière — tout est gardé.
+- Tu fermes l'application ou le téléphone tue l'onglet en plein milieu — c'est écrit quand même : l'app enregistre au moment où l'écran se cache, sans attendre.
+- **Tu rouvres l'app, tu retombes sur la facture que tu étais en train de faire**, exactement où tu l'avais laissée. Une fois que tu en sors par la flèche, l'app s'ouvre normalement sur la liste.
+
+Deux garde-fous : une facture **encore vide** n'est pas gardée (elle encombrerait la liste et brûlerait un numéro pour rien), et l'enregistrement automatique **ne touche pas au catalogue de prix** — une description à moitié tapée n'a rien à faire dans ta liste de prix. Le catalogue n'apprend que sur un vrai enregistrement.
 
 ## Catalogue d'articles (liste de prix)
 

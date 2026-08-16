@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft, MoreVertical, ChevronRight, Send, Paperclip, Trash2,
-  Mail, MessageSquare, Printer, Clock, X, Maximize2, PenLine, Eye
+  Mail, MessageSquare, Printer, Clock, X, Maximize2, PenLine, Eye, MapPin
 } from 'lucide-react'
 import {
   buildEmailBody, buildSmsBody, calcTotals, docStatus, fmtDate, lineTotal, money,
@@ -57,6 +57,7 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
   const [sendOpen, setSendOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [clientOpen, setClientOpen] = useState(false)
+  const [siteOpen, setSiteOpen] = useState(false)
   const [payOpen, setPayOpen] = useState(false)
   const [sigOpen, setSigOpen] = useState(false)
   const totals = calcTotals(doc)
@@ -213,6 +214,27 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
           <input placeholder="Adresse" value={doc.client.address} onChange={e => setClient({ address: e.target.value })}/>
           <input placeholder="Ville" value={doc.client.city} onChange={e => setClient({ city: e.target.value })}/>
           <button className="link-btn" onClick={saveClientToBook}>Sauvegarder ce client en mémoire</button>
+        </div>}
+      </div>
+
+      {/* Chantier : une facture par adresse de travaux */}
+      <div className="edit-card">
+        <Row onClick={() => setSiteOpen(o => !o)} chevron>
+          <span className="row-ico"><MapPin size={17}/></span>
+          <span><b>Chantier</b> <span className={doc.siteAddress ? '' : 'hint'}>{doc.siteAddress || 'Adresse des travaux'}</span></span>
+        </Row>
+        {siteOpen && <div className="row-detail">
+          <textarea
+            rows={2}
+            placeholder="123, rue Principale, Calgary, AB"
+            value={doc.siteAddress || ''}
+            onChange={e => set({ siteAddress: e.target.value })}
+          />
+          {doc.client.address && doc.client.address !== doc.siteAddress && <button
+            className="link-btn"
+            onClick={() => set({ siteAddress: [doc.client.address, doc.client.city].filter(Boolean).join(', ') })}
+          >Reprendre l'adresse du client</button>}
+          <p className="hint small-note">Imprimée sur la facture, pour que le client voie tout de suite quel chantier il paie.</p>
         </div>}
       </div>
 

@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
   FileText, ClipboardList, Calculator, CreditCard, MoreHorizontal,
   Users, Package, ReceiptText, BarChart3, Settings as SettingsIcon, X, Sparkles
 } from 'lucide-react'
-import { load, save, emptySettings, mergeItemsFromLines, mergeSettings, migrateOldData, newDocument } from './store.js'
+import {
+  load, save, emptySettings, hasDraftContent, mergeItemsFromLines, mergeSettings,
+  migrateOldData, newDocument
+} from './store.js'
 import { DocumentList } from './lists.jsx'
 import { DocumentEditor } from './editor.jsx'
 import { ClientsScreen, ItemsScreen, ExpensesScreen } from './catalog.jsx'
@@ -17,6 +20,10 @@ import './styles.css'
 // Une modification n'est pas envoyée tout de suite : sur un chantier, on
 // enchaîne les touches, et une synchro par frappe ne servirait à rien.
 const SYNC_DELAY = 3000
+
+// Une facture en cours est enregistrée toute seule, sans attendre un bouton :
+// on ne refait pas une facture parce que le téléphone a fermé l'onglet.
+const AUTOSAVE_DELAY = 700
 
 const NAV = [
   { id: 'factures', label: 'Factures', icon: FileText },
@@ -44,7 +51,12 @@ function App() {
   const [items, setItems] = useState(() => load('is_items', []))
   const [expenses, setExpenses] = useState(() => load('is_expenses', []))
   const [docs, setDocs] = useState(() => migrated?.docs || load('is_docs', []))
-  const [editing, setEditing] = useState(null)
+  // On rouvre la facture qui était à l'écran la dernière fois : fermer
+  // l'application au milieu d'une facture ne doit rien coûter.
+  const [editing, setEditing] = useState(() => {
+    const id = load('is_open_doc', null)
+    return id ? (migrated?.docs || load('is_docs', [])).find(d => d.id === id) || null : null
+  })
   const [dirty, setDirty] = useState(0)
   // L'assistant s'ouvre par-dessus l'écran courant : on revient exactement où
   // on était en le fermant, depuis n'importe quel onglet.
@@ -80,16 +92,57 @@ function App() {
     return () => clearTimeout(t)
   }, [dirty, cloud.user?.id])
 
-  const upsertDoc = doc => {
+  // ===== Ne jamais reperdre une facture en cours =====
+  const editingRef = useRef(editing)
+  editingRef.current = editing
+
+  // De quoi la rouvrir au prochain lancement
+  useEffect(() => { save('is_open_doc', editing?.id || null) }, [editing?.id])
+
+  useEffect(() => {
+    if (!editing || !hasDraftContent(editing)) return
+    const t = setTimeout(() => autosaveDoc(editing), AUTOSAVE_DELAY)
+    return () => clearTimeout(t)
+  }, [editing])
+
+  // Un téléphone ferme l'onglet sans prévenir, au milieu du délai
+  // d'enregistrement. On écrit alors directement, sans passer par React : il
+  // n'aurait pas le temps de faire un rendu de plus.
+  useEffect(() => {
+    const flush = () => {
+      const d = editingRef.current
+      if (!d || !hasDraftContent(d)) return
+      const stamped = { ...d, updatedAt: new Date().toISOString() }
+      const list = load('is_docs', [])
+      save('is_docs', list.some(x => x.id === stamped.id)
+        ? list.map(x => x.id === stamped.id ? stamped : x)
+        : [stamped, ...list])
+    }
+    const onHide = () => { if (document.visibilityState === 'hidden') flush() }
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', onHide)
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      document.removeEventListener('visibilitychange', onHide)
+    }
+  }, [])
+
+  const storeDoc = (doc, catalog) => {
     touch()
     const stamped = { ...doc, updatedAt: new Date().toISOString() }
     setDocs(list => list.some(d => d.id === stamped.id)
       ? list.map(d => d.id === stamped.id ? stamped : d)
       : [stamped, ...list])
     // tout ce qui est facturé est mémorisé pour l'autocomplétion
-    setItems(list => mergeItemsFromLines(list, stamped.lines))
+    if (catalog) setItems(list => mergeItemsFromLines(list, stamped.lines))
     return stamped
   }
+
+  const upsertDoc = doc => storeDoc(doc, true)
+
+  // L'enregistrement automatique ne touche pas au catalogue : une description
+  // à moitié tapée n'a rien à faire dans la liste de prix.
+  const autosaveDoc = doc => storeDoc(doc, false)
 
   const deleteDoc = id => {
     touch()
