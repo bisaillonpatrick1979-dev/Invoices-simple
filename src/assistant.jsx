@@ -9,16 +9,28 @@ import {
 } from './store.js'
 import { askAi, buildSystemPrompt, parseAction, splitDataUrl } from './ai.js'
 import { dictationSupported, speak, stopSpeaking, useDictation } from './voice.js'
-import { AppBar, useFabDrag } from './lists.jsx'
+import { AppBar, clampFab, fabsOverlap, plusFabPos, useFabDrag, FAB_GAP, FAB_SIZE } from './lists.jsx'
 
-// La bulle de l'assistant se pose au-dessus de la bulle « + » pour ne pas la
-// couvrir au premier lancement ; ensuite chacune garde l'endroit où on la met.
-const AI_FAB_DEFAULT = { right: 18, bottom: 160 }
+const AI_FAB_SIZE = 52
+
+// La bulle de l'assistant ne doit jamais s'asseoir sur la bulle « + » : elle
+// avalerait la touche et le bouton d'ajout serait mort — sur les Articles, les
+// Clients, les Dépenses. On l'écarte au démarrage et après chaque dépôt.
+//
+// Tant que le « + » est à sa place d'origine, on ne fixe rien : le CSS le place
+// déjà plus bas, et il sait recentrer la bulle sur les grands écrans.
+const avoidPlusFab = saved => {
+  const plus = plusFabPos()
+  if (!plus) return saved
+  const mine = saved || { right: plus.right, bottom: plus.bottom + FAB_GAP }
+  if (!fabsOverlap(mine, plus, AI_FAB_SIZE, FAB_SIZE)) return mine
+  return clampFab({ right: plus.right, bottom: plus.bottom + FAB_GAP })
+}
 
 // Bulle IA, présente sur tous les écrans : une touche ouvre l'assistant
 // par-dessus ce qu'on était en train de faire, un glissement la déplace.
 export function AiFab({ onClick, busy }) {
-  const { style, handlers } = useFabDrag('is_aifab_pos', AI_FAB_DEFAULT, onClick)
+  const { style, handlers } = useFabDrag('is_aifab_pos', null, onClick, avoidPlusFab)
   return <button
     className={busy ? 'fab ai-fab busy no-print' : 'fab ai-fab no-print'}
     title="Assistant IA"

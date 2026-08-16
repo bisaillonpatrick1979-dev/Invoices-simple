@@ -2,21 +2,36 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Search, Settings as SettingsIcon, Inbox, X } from 'lucide-react'
 import { calcTotals, docStatus, fmtDate, lastPaymentDate, load, money, save } from './store.js'
 
-const FAB_SIZE = 58
-const FAB_DEFAULT = { right: 18, bottom: 92 }
+export const FAB_SIZE = 58
+export const FAB_DEFAULT = { right: 18, bottom: 92 }
 // au-dessus de la barre d'onglets du bas
 const FAB_MIN_BOTTOM = 78
+// écart entre deux bulles empilées
+export const FAB_GAP = 66
 
-const clampFab = p => ({
+export const clampFab = p => ({
   right: Math.min(Math.max(p.right, 6), Math.max(6, window.innerWidth - FAB_SIZE - 6)),
   bottom: Math.min(Math.max(p.bottom, FAB_MIN_BOTTOM), Math.max(FAB_MIN_BOTTOM, window.innerHeight - FAB_SIZE - 6))
 })
 
+// La position du « + », telle qu'elle est vraiment : celle qu'on lui a donnée,
+// sinon celle par défaut.
+export const plusFabPos = () => load('is_fab_pos', null)
+
+// Deux bulles au même endroit, c'est une bulle qui avale les touches de
+// l'autre. Les positions sont des écarts depuis le coin bas-droit.
+export const fabsOverlap = (a, b, sizeA = FAB_SIZE, sizeB = FAB_SIZE) =>
+  !!a && !!b &&
+  a.right < b.right + sizeB && b.right < a.right + sizeA &&
+  a.bottom < b.bottom + sizeB && b.bottom < a.bottom + sizeA
+
 // Bulle déplaçable : un appui agit, un glissement la repositionne. La position
 // est retenue d'un écran à l'autre et d'une session à l'autre.
 // Partagé par la bulle « + » et la bulle de l'assistant.
-export function useFabDrag(key, fallback, onClick) {
-  const [pos, setPos] = useState(() => load(key, null))
+// `resolve` permet à une bulle de corriger sa place au démarrage et après
+// chaque dépôt — c'est ce qui empêche celle de l'IA de s'asseoir sur le « + ».
+export function useFabDrag(key, fallback, onClick, resolve) {
+  const [pos, setPos] = useState(() => (resolve ? resolve(load(key, null)) : load(key, null)))
   const drag = useRef(null)
 
   useEffect(() => {
@@ -47,7 +62,10 @@ export function useFabDrag(key, fallback, onClick) {
   const up = () => {
     const d = drag.current
     drag.current = null
-    if (d && !d.moved) onClick()
+    if (d && !d.moved) return onClick()
+    // déposée sur l'autre bulle : on l'écarte plutôt que de la laisser
+    // masquer un bouton
+    if (d?.moved && resolve) setPos(p => resolve(p))
   }
 
   return {

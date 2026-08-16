@@ -193,7 +193,9 @@ La **clé API de l'assistant IA ne monte jamais** dans le nuage. Elle a été sa
 
 ## Bulles déplaçables
 
-Deux boutons ronds flottent au-dessus de l'app : le **« + » bleu** (ajouter) et la **bulle mauve de l'assistant**. Chacune se glisse où on veut — un appui agit, un glissement déplace — garde sa place d'une session à l'autre, et ne peut pas sortir de l'écran. Au premier lancement, l'assistant se pose au-dessus du « + » pour ne pas le couvrir.
+Deux boutons ronds flottent au-dessus de l'app : le **« + » bleu** (ajouter) et la **bulle mauve de l'assistant**. Chacune se glisse où on veut — un appui agit, un glissement déplace — garde sa place d'une session à l'autre, et ne peut pas sortir de l'écran.
+
+**Elles ne peuvent pas se cacher l'une l'autre.** La bulle de l'assistant s'écarte du « + » au démarrage et après chaque glissement, et le « + » passe devant de toute façon. Sans ça, une bulle posée sur l'autre avale la touche et le bouton d'ajout devient mort — plus moyen d'ajouter un article ni un client.
 
 ## Commandes
 

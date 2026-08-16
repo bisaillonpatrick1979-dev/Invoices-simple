@@ -218,7 +218,9 @@ textarea { resize: vertical; }
   position: fixed;
   right: max(18px, calc(50vw - 430px + 18px));
   bottom: 92px;
-  z-index: 41;
+  /* le « + » passe devant la bulle de l'assistant : même empilées par
+     accident, le bouton d'ajout doit rester touchable */
+  z-index: 42;
   width: 58px; height: 58px;
   border-radius: 50%;
   background: var(--blue);
@@ -992,6 +994,7 @@ button.primary.wide { width: 100%; margin-top: 12px; }
 .ai-fab {
   /* par défaut au-dessus de la bulle « + », qu'elle ne doit pas couvrir */
   bottom: 160px;
+  z-index: 41;
   width: 52px; height: 52px;
   background: linear-gradient(140deg, #6c7cf0, #4353c9);
   box-shadow: 0 6px 18px rgba(67, 83, 201, .38), 0 0 0 4px rgba(108, 124, 240, .13);
