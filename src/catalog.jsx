@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { ArrowLeft, Plus, Trash2, Pencil, Search, X } from 'lucide-react'
-import { emptyClient, emptyItem, emptyExpense, EXPENSE_CATEGORIES, fmtDate, money, today, uid } from './store.js'
+import { emptyClient, emptyItem, emptyExpense, EXPENSE_CATEGORIES, fmtDate, money, today, uid, UNITS } from './store.js'
 import { AppBar } from './lists.jsx'
 
 function FormSheet({ title, onClose, onSubmit, submitLabel, children }) {
@@ -65,19 +65,34 @@ export function ClientsScreen({ clients, setClients, onBack }) {
 
 export function ItemsScreen({ items, setItems, onBack }) {
   const [draft, setDraft] = useState(null)
+  const [query, setQuery] = useState('')
 
   const submit = () => {
     if (!draft.description.trim()) return alert('Entre une description.')
-    const it = { ...draft, id: draft.id || uid(), rate: Number(draft.rate || 0) }
+    const it = { ...draft, id: draft.id || uid(), rate: Number(draft.rate || 0), unit: draft.unit || 'ea' }
     setItems(list => list.some(x => x.id === it.id) ? list.map(x => x.id === it.id ? it : x) : [...list, it])
     setDraft(null)
   }
 
+  const q = query.trim().toLowerCase()
+  const list = items
+    .filter(it => !q || String(it.description || '').toLowerCase().includes(q))
+    .sort((a, b) => String(a.description).localeCompare(String(b.description), 'fr'))
+
   return <section className="screen">
     <AppBar title="Articles" left={<button className="icon light" onClick={onBack}><ArrowLeft size={22}/></button>}/>
+    <div className="searchbar">
+      <Search size={17}/>
+      <input placeholder="Chercher un article..." value={query} onChange={e => setQuery(e.target.value)}/>
+    </div>
     <div className="doclist">
-      {items.length === 0 && <div className="empty"><p>Enregistrez vos produits et services pour les ajouter rapidement à vos factures.</p></div>}
-      {items.map(it => <div className="docrow static" key={it.id}>
+      {items.length === 0 && <div className="empty">
+        <p><b>Ta liste de prix</b></p>
+        <p>Enregistre ici les travaux et matériaux qui reviennent souvent, avec leur prix à l'unité — par exemple « Poser des panneaux » à 3,00 $ / pi².</p>
+        <p>Tu peux aussi enregistrer un prix directement depuis une facture, avec le bouton signet à côté de la ligne.</p>
+      </div>}
+      {items.length > 0 && <div className="year-head"><span>{list.length} article{list.length > 1 ? 's' : ''}</span></div>}
+      {list.map(it => <div className="docrow static" key={it.id}>
         <div className="docinfo">
           <b>{it.description}</b>
           <small>{money(it.rate)} / {it.unit}{it.taxable !== false ? ' • taxable' : ''}</small>
@@ -90,11 +105,12 @@ export function ItemsScreen({ items, setItems, onBack }) {
     </div>
     <button className="fab no-print" onClick={() => setDraft({ ...emptyItem })}><Plus size={28}/></button>
     {draft && <FormSheet title={draft.id ? 'Modifier article' : 'Nouvel article'} onClose={() => setDraft(null)} onSubmit={submit} submitLabel="Enregistrer">
-      <input placeholder="Description" value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })}/>
+      <input placeholder="Description (ex. : Poser des panneaux)" value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })}/>
       <div className="pair">
-        <input type="number" placeholder="Prix" value={draft.rate} onChange={e => setDraft({ ...draft, rate: e.target.value })}/>
-        <input placeholder="Unité" value={draft.unit} onChange={e => setDraft({ ...draft, unit: e.target.value })}/>
+        <input type="number" inputMode="decimal" placeholder="Prix (ex. : 3)" value={draft.rate} onChange={e => setDraft({ ...draft, rate: e.target.value })}/>
+        <input list="unit-options" placeholder="Unité (ex. : pi²)" value={draft.unit} onChange={e => setDraft({ ...draft, unit: e.target.value })}/>
       </div>
+      <datalist id="unit-options">{UNITS.map(u => <option key={u} value={u}/>)}</datalist>
       <label className="check"><input type="checkbox" checked={draft.taxable !== false} onChange={e => setDraft({ ...draft, taxable: e.target.checked })}/> Taxable</label>
     </FormSheet>}
   </section>
