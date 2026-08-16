@@ -1022,6 +1022,25 @@ button.primary.wide { width: 100%; margin-top: 12px; }
 .assistant-overlay .chat-bar { bottom: env(safe-area-inset-bottom); }
 .assistant-overlay .chat-body { padding-bottom: 130px; }
 
+/* ===== Copie de sauvegarde ===== */
+.counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+.counts span {
+  background: #f4f5fd;
+  border: 1px solid #dfe3f8;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.counts b { color: var(--ink); }
+/* un <label> qui doit avoir l'air d'un bouton */
+.file-btn { cursor: pointer; margin-top: 8px; }
+
 /* ===== Nuage ===== */
 .cloud-state {
   display: flex;

@@ -212,7 +212,13 @@ function App() {
         {tab === 'articles' && <ItemsScreen items={items} setItems={tracked(setItems)} onBack={() => setTab('factures')}/>}
         {tab === 'depenses' && <ExpensesScreen expenses={expenses} setExpenses={tracked(setExpenses)} onBack={() => setTab('factures')}/>}
         {tab === 'rapports' && <RapportsScreen docs={docs} onBack={() => setTab('factures')}/>}
-        {tab === 'settings' && <SettingsScreen settings={settings} setSettings={tracked(setSettings)} cloud={cloud} onBack={() => setTab('factures')}/>}
+        {tab === 'settings' && <SettingsScreen
+          settings={settings}
+          setSettings={tracked(setSettings)}
+          cloud={cloud}
+          data={{ clients, items, expenses, docs }}
+          onBack={() => setTab('factures')}
+        />}
       </>
 
   const activeNav = editing

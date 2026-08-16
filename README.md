@@ -155,6 +155,20 @@ S'il manque l'adresse courriel ou le numéro de téléphone du client, il le dit
 
 Il **prépare** la facture et l'ouvre pour révision ; il ne l'envoie jamais sans que tu appuies. Envoyer une facture est irréversible, alors la dernière touche reste la tienne.
 
+## Copie de sauvegarde (fichier)
+
+**Réglages → Copie de sauvegarde.** Un bouton écrit un fichier `invoices-simple-AAAA-MM-JJ.json` avec tout : clients, articles, factures, devis, dépenses, réglages. Un autre le relit.
+
+**Un redéploiement de l'app n'efface rien.** Les données vivent dans le navigateur, pas dans le code ; publier une nouvelle version ne les touche pas. Ce qui les fait disparaître :
+
+- **changer d'adresse de site** — c'est le vrai piège. Le navigateur range les données par adresse, et Vercel donne une **adresse différente à chaque déploiement** (`invoices-simple-ooem6t4ld-…`). Un site ouvert sur une de ces adresses-là repart à zéro à la publication suivante. Il faut travailler sur l'**adresse stable** : `invoices-simple.vercel.app`.
+- changer d'appareil ou de navigateur, ou passer en navigation privée
+- vider les données de navigation
+
+La restauration **ajoute, elle n'efface pas** : ce qui est déjà dans l'app est gardé, ce qui est dans le fichier vient s'ajouter ou mettre à jour, par identifiant. Restaurer par erreur ne détruit donc rien.
+
+La clé API de l'assistant **ne part pas** dans le fichier : elle resterait en clair dans une copie qu'on promène. Elle reste sur l'appareil, et une restauration ne l'écrase pas.
+
 ## Sauvegarde infonuagique (Supabase)
 
 **Réglages → Sauvegarde infonuagique.** Sans compte, l'app marche exactement comme avant : tout reste dans le navigateur. Avec un compte, les mêmes données sont aussi copiées dans le projet Supabase **Hailite-manager**, et suivent d'un appareil à l'autre.

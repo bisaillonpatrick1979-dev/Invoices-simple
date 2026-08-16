@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
-import { ArrowLeft, Cloud, Eye, Sparkles } from 'lucide-react'
+import { ArrowLeft, Cloud, Eye, HardDriveDownload, HardDriveUpload, Sparkles } from 'lucide-react'
 import { defaultWatermark, emptySettings, readImageFile, sampleDocument } from './store.js'
 import { AI_PROVIDERS, aiProvider, askAi } from './ai.js'
+import { applyBackup, backupCounts, downloadBackup, readBackupFile } from './backup.js'
 import { CloudSection } from './cloudui.jsx'
 import { AppBar } from './lists.jsx'
 import { PaperPreview, Watermark } from './paper.jsx'
@@ -23,7 +24,39 @@ const WM_MODES = [{ id: 'logo', label: 'Logo' }, { id: 'text', label: 'Texte' },
 // Poids approximatif d'une image en data URL (base64 = 4/3 des octets)
 const dataUrlWeight = src => `${Math.round((String(src).length * 0.75) / 1024)} ko`
 
-export function SettingsScreen({ settings, setSettings, cloud, onBack }) {
+export function SettingsScreen({ settings, setSettings, cloud, data, onBack }) {
+  const { clients = [], items = [], expenses = [], docs = [] } = data || {}
+  const [backupMsg, setBackupMsg] = useState(null)
+
+  const saveCopy = () => {
+    try {
+      const n = downloadBackup()
+      setBackupMsg({ text: `Copie enregistrée : ${n.clients} client(s), ${n.items} article(s), ${n.docs} document(s), ${n.expenses} dépense(s). Range-la ailleurs que sur le téléphone.` })
+    } catch {
+      setBackupMsg({ err: true, text: "La copie n'a pas pu être créée." })
+    }
+  }
+
+  const restoreCopy = e => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setBackupMsg(null)
+    readBackupFile(file)
+      .then(backup => {
+        const n = backupCounts(backup)
+        const when = backup.exportedAt ? new Date(backup.exportedAt).toLocaleString('fr-CA') : 'date inconnue'
+        // Restaurer n'efface rien : on ajoute et on met à jour. Autant le dire
+        // avant, pour que personne ne pense perdre ce qui est déjà là.
+        if (!confirm(`Copie du ${when}\n\n${n.clients} client(s), ${n.items} article(s), ${n.docs} document(s), ${n.expenses} dépense(s).\n\nElle sera ajoutée à ce qui est déjà dans l'app. Rien ne sera effacé. Continuer ?`)) return
+        applyBackup(backup)
+        setBackupMsg({ text: 'Copie restaurée. L\'app se recharge…' })
+        // relecture complète plutôt que de recoller l'état à la main
+        setTimeout(() => window.location.reload(), 700)
+      })
+      .catch(err => setBackupMsg({ err: true, text: err.message }))
+  }
+
   const b = settings.business
   const wm = { ...defaultWatermark, ...(settings.watermark || {}) }
   const [logoError, setLogoError] = useState('')
@@ -152,6 +185,27 @@ export function SettingsScreen({ settings, setSettings, cloud, onBack }) {
         <button className="outline-btn" disabled={!ai.apiKey.trim() || aiTest?.state === 'run'} onClick={testAi}>Tester la connexion</button>
         {aiTest && <p className={aiTest.state === 'err' ? 'hint small-note ai-test err' : 'hint small-note ai-test'}>{aiTest.text}</p>}
         {ai.apiKey && <button className="link-btn" onClick={() => { setAiTest(null); setAi({ apiKey: '' }) }}>Retirer la clé de cet appareil</button>}
+      </div>
+
+      <div className="edit-card padded">
+        <h2 className="section-title"><HardDriveDownload size={17}/> Copie de sauvegarde</h2>
+        <p className="hint small-note">
+          Tes clients, articles, factures et réglages vivent dans ce navigateur. <b>Un redéploiement de l'app n'y touche pas.</b> Ce qui les fait disparaître, c'est changer d'adresse de site, d'appareil ou de navigateur, ou vider les données de navigation. Garde une copie : elle se relit n'importe où.
+        </p>
+        <div className="counts">
+          <span><b>{clients.length}</b> client{clients.length > 1 ? 's' : ''}</span>
+          <span><b>{items.length}</b> article{items.length > 1 ? 's' : ''}</span>
+          <span><b>{docs.length}</b> document{docs.length > 1 ? 's' : ''}</span>
+          <span><b>{expenses.length}</b> dépense{expenses.length > 1 ? 's' : ''}</span>
+        </div>
+        <button className="outline-btn with-icon" onClick={saveCopy}>
+          <HardDriveDownload size={18}/> Enregistrer une copie
+        </button>
+        <label className="outline-btn with-icon file-btn">
+          <HardDriveUpload size={18}/> Restaurer depuis une copie
+          <input type="file" accept="application/json,.json" hidden onChange={restoreCopy}/>
+        </label>
+        {backupMsg && <p className={backupMsg.err ? 'hint small-note ai-test err' : 'hint small-note ai-test'}>{backupMsg.text}</p>}
       </div>
 
       {cloud && <div className="edit-card padded">
