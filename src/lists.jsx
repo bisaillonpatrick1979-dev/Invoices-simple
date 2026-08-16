@@ -28,6 +28,17 @@ export const fabsOverlap = (a, b, sizeA = FAB_SIZE, sizeB = FAB_SIZE) =>
 // Bulle déplaçable : un appui agit, un glissement la repositionne. La position
 // est retenue d'un écran à l'autre et d'une session à l'autre.
 // Partagé par la bulle « + » et la bulle de l'assistant.
+// Distance sous laquelle on tient encore un appui, pas un glissement. Au doigt
+// il faut de la marge : un pouce dérape de quelques pixels à chaque touche, et
+// avec 6 px le bouton « + » ne répondait qu'aux touches parfaitement immobiles.
+const TOUCH_SLOP = 14
+const MOUSE_SLOP = 6
+const slop = d => (d.touch ? TOUCH_SLOP : MOUSE_SLOP)
+// Un geste bref reste un appui même s'il a dérapé plus que ça : personne ne
+// déplace une bulle en un dixième de seconde.
+const TAP_MS = 350
+const TAP_MAX = 26
+
 // `resolve` permet à une bulle de corriger sa place au démarrage et après
 // chaque dépôt — c'est ce qui empêche celle de l'IA de s'asseoir sur le « + ».
 export function useFabDrag(key, fallback, onClick, resolve) {
@@ -44,7 +55,15 @@ export function useFabDrag(key, fallback, onClick, resolve) {
   useEffect(() => { if (pos) save(key, pos) }, [pos, key])
 
   const down = e => {
-    drag.current = { x: e.clientX, y: e.clientY, moved: false, base: pos || fallback }
+    drag.current = {
+      x: e.clientX,
+      y: e.clientY,
+      at: Date.now(),
+      moved: false,
+      touch: e.pointerType !== 'mouse',
+      from: pos,                       // pour revenir en arrière si c'était un appui
+      base: pos || fallback || FAB_DEFAULT
+    }
     // sans capture le glissement marche quand même : ne jamais casser l'appui
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* ignore */ }
   }
@@ -53,19 +72,27 @@ export function useFabDrag(key, fallback, onClick, resolve) {
     const d = drag.current
     if (!d) return
     const dx = e.clientX - d.x, dy = e.clientY - d.y
-    // seuil : sous 6 px, c'est un appui, pas un glissement
-    if (!d.moved && Math.hypot(dx, dy) < 6) return
+    if (!d.moved && Math.hypot(dx, dy) < slop(d)) return
     d.moved = true
     setPos(clampFab({ right: d.base.right - dx, bottom: d.base.bottom - dy }))
   }
 
-  const up = () => {
+  const up = e => {
     const d = drag.current
     drag.current = null
-    if (d && !d.moved) return onClick()
+    if (!d) return
+    const dist = Math.hypot((e?.clientX ?? d.x) - d.x, (e?.clientY ?? d.y) - d.y)
+
+    // Un appui reste un appui même si le doigt a bougé : sur un téléphone il
+    // bouge toujours un peu, et une bulle qui ne répond pas à la touche rend
+    // le bouton d'ajout inutilisable.
+    if (dist < slop(d) || (Date.now() - d.at < TAP_MS && dist < TAP_MAX)) {
+      if (d.moved) setPos(d.from)      // elle avait commencé à suivre le doigt
+      return onClick()
+    }
     // déposée sur l'autre bulle : on l'écarte plutôt que de la laisser
     // masquer un bouton
-    if (d?.moved && resolve) setPos(p => resolve(p))
+    if (resolve) setPos(p => resolve(p))
   }
 
   return {

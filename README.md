@@ -195,6 +195,8 @@ La **clé API de l'assistant IA ne monte jamais** dans le nuage. Elle a été sa
 
 Deux boutons ronds flottent au-dessus de l'app : le **« + » bleu** (ajouter) et la **bulle mauve de l'assistant**. Chacune se glisse où on veut — un appui agit, un glissement déplace — garde sa place d'une session à l'autre, et ne peut pas sortir de l'écran.
 
+**Un appui reste un appui.** Au doigt, le pouce dérape toujours de quelques pixels : la bulle tolère 14 px avant de se croire glissée, et un geste bref compte comme une touche même s'il a bougé davantage. Sinon le bouton « + » ne répond qu'aux touches parfaitement immobiles — et on ne peut plus rien ajouter.
+
 **Elles ne peuvent pas se cacher l'une l'autre.** La bulle de l'assistant s'écarte du « + » au démarrage et après chaque glissement, et le « + » passe devant de toute façon. Sans ça, une bulle posée sur l'autre avale la touche et le bouton d'ajout devient mort — plus moyen d'ajouter un article ni un client.
 
 ## Commandes
