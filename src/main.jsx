@@ -4,7 +4,7 @@ import {
   FileText, ClipboardList, Calculator, CreditCard, MoreHorizontal,
   Users, Package, ReceiptText, BarChart3, Settings as SettingsIcon, X
 } from 'lucide-react'
-import { load, save, emptySettings, mergeSettings, migrateOldData, newDocument } from './store.js'
+import { load, save, emptySettings, mergeItemsFromLines, mergeSettings, migrateOldData, newDocument } from './store.js'
 import { DocumentList } from './lists.jsx'
 import { DocumentEditor } from './editor.jsx'
 import { ClientsScreen, ItemsScreen, ExpensesScreen } from './catalog.jsx'
@@ -50,6 +50,8 @@ function App() {
     setDocs(list => list.some(d => d.id === stamped.id)
       ? list.map(d => d.id === stamped.id ? stamped : d)
       : [stamped, ...list])
+    // tout ce qui est facturé est mémorisé pour l'autocomplétion
+    setItems(list => mergeItemsFromLines(list, stamped.lines))
     return stamped
   }
 

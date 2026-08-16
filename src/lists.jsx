@@ -1,6 +1,64 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Search, Settings as SettingsIcon, Inbox, X } from 'lucide-react'
-import { calcTotals, docStatus, fmtDate, lastPaymentDate, money } from './store.js'
+import { calcTotals, docStatus, fmtDate, lastPaymentDate, load, money, save } from './store.js'
+
+const FAB_SIZE = 58
+const FAB_DEFAULT = { right: 18, bottom: 92 }
+// au-dessus de la barre d'onglets du bas
+const FAB_MIN_BOTTOM = 78
+
+const clampFab = p => ({
+  right: Math.min(Math.max(p.right, 6), Math.max(6, window.innerWidth - FAB_SIZE - 6)),
+  bottom: Math.min(Math.max(p.bottom, FAB_MIN_BOTTOM), Math.max(FAB_MIN_BOTTOM, window.innerHeight - FAB_SIZE - 6))
+})
+
+// Bulle « + » déplaçable : un appui ajoute, un glissement la repositionne.
+// La position est retenue d'un écran à l'autre et d'une session à l'autre.
+export function Fab({ onClick, title = 'Ajouter' }) {
+  const [pos, setPos] = useState(() => load('is_fab_pos', null))
+  const drag = useRef(null)
+
+  useEffect(() => {
+    if (!pos) return
+    const onResize = () => setPos(p => (p ? clampFab(p) : p))
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [pos])
+
+  const down = e => {
+    drag.current = { x: e.clientX, y: e.clientY, moved: false, base: pos || FAB_DEFAULT }
+    // sans capture le glissement marche quand même : ne jamais casser l'appui
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* ignore */ }
+  }
+
+  const move = e => {
+    const d = drag.current
+    if (!d) return
+    const dx = e.clientX - d.x, dy = e.clientY - d.y
+    // seuil : sous 6 px, c'est un appui, pas un glissement
+    if (!d.moved && Math.hypot(dx, dy) < 6) return
+    d.moved = true
+    setPos(clampFab({ right: d.base.right - dx, bottom: d.base.bottom - dy }))
+  }
+
+  const up = () => {
+    const d = drag.current
+    drag.current = null
+    if (d && !d.moved) onClick()
+  }
+
+  useEffect(() => { if (pos) save('is_fab_pos', pos) }, [pos])
+
+  return <button
+    className="fab no-print"
+    title={title}
+    style={pos ? { right: pos.right, bottom: pos.bottom } : undefined}
+    onPointerDown={down}
+    onPointerMove={move}
+    onPointerUp={up}
+    onPointerCancel={() => { drag.current = null }}
+  ><Plus size={28}/></button>
+}
 
 const TABS = {
   invoice: [
@@ -106,6 +164,6 @@ export function DocumentList({ type, docs, onOpen, onNew, onOpenSettings }) {
       </div>)}
     </div>
 
-    <button className="fab no-print" onClick={onNew}><Plus size={28}/></button>
+    <Fab onClick={onNew} title={type === 'invoice' ? 'Nouvelle facture' : 'Nouveau devis'}/>
   </section>
 }

@@ -107,22 +107,40 @@ export const EXPENSE_CATEGORIES = ['Matériel', 'Essence', 'Outils', 'Sous-trait
 // Unités suggérées (le champ reste libre : on peut taper n'importe quoi)
 export const UNITS = ['ea', 'h', 'pi²', 'pi lin.', 'verge²', 'jour', 'lot', 'km']
 
-// Un article du catalogue construit à partir d'une ligne de facture.
-// Même description = mise à jour du prix plutôt qu'un doublon.
-export function itemFromLine(line, items) {
-  const description = String(line.description || '').trim()
-  if (!description) return null
-  const existing = items.find(i => String(i.description || '').trim().toLowerCase() === description.toLowerCase())
-  return {
-    item: {
-      id: existing?.id || uid(),
-      description,
-      unit: line.unit || 'ea',
-      rate: Number(line.rate || 0),
-      taxable: line.taxable !== false
-    },
-    existing: !!existing
+export const normDesc = d => String(d || '').trim().toLowerCase()
+
+// Tout ce qui est facturé entre automatiquement au catalogue : en retapant
+// les premières lettres, la description et son prix ressortent. Une
+// description déjà connue est mise à jour au lieu d'être dupliquée.
+export function mergeItemsFromLines(items, lines) {
+  const byKey = new Map(items.map(i => [normDesc(i.description), i]))
+  let changed = false
+  for (const l of lines || []) {
+    const key = normDesc(l.description)
+    // 3 lettres : évite de mémoriser une description à moitié tapée
+    if (key.length < 3) continue
+    const prev = byKey.get(key)
+    const rate = Number(l.rate || 0)
+    const unit = l.unit || 'ea'
+    const taxable = l.taxable !== false
+    if (prev && Number(prev.rate) === rate && prev.unit === unit && (prev.taxable !== false) === taxable) continue
+    byKey.set(key, { id: prev?.id || uid(), description: String(l.description).trim(), unit, rate, taxable })
+    changed = true
   }
+  return changed ? [...byKey.values()] : items
+}
+
+// Suggestions pour l'autocomplétion de la description
+export function suggestItems(items, typed, limit = 6) {
+  const q = normDesc(typed)
+  if (q.length < 2) return []
+  return items
+    .filter(it => normDesc(it.description).includes(q) && normDesc(it.description) !== q)
+    .sort((a, b) => {
+      const rank = x => normDesc(x.description).startsWith(q) ? 0 : 1
+      return rank(a) - rank(b) || String(a.description).localeCompare(String(b.description), 'fr')
+    })
+    .slice(0, limit)
 }
 
 export const newLine = () => ({ id: uid(), description: '', qty: 1, unit: 'ea', rate: 0, taxable: true })
