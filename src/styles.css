@@ -322,7 +322,8 @@ textarea.edit-row.ghost.notes { min-height: 84px; }
   text-align: right;
 }
 .line-extra { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
-.line-extra select { flex: 1; max-width: 250px; padding: 6px 8px; font-size: 13px; }
+.line-extra select { flex: 1; min-width: 0; max-width: 250px; padding: 6px 8px; font-size: 13px; }
+.line-extra .unit-input { width: 74px; flex: none; padding: 6px 8px; font-size: 13px; text-align: center; }
 
 .inline-edit { display: inline-flex; align-items: center; gap: 7px; }
 .inline-edit input { width: 84px; padding: 5px 8px; text-align: right; }

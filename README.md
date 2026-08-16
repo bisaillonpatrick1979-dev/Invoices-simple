@@ -21,7 +21,7 @@ Onglets **Modifier / Aperçu / Historique** comme l'app de référence :
 
 ## Autres écrans
 
-- **Clients / Articles / Dépenses** : listes avec bouton « + » flottant et formulaires en feuille du bas
+- **Clients / Articles / Dépenses** : listes avec bouton « + » flottant, recherche et formulaires en feuille du bas
 - **Rapports** : facturé / payé / impayé par année, par mois, par client, par article
 - **Réglages** : infos d'entreprise, logo, filigrane, taxe, préfixes de numérotation, couleur du PDF, textes par défaut
 
@@ -43,6 +43,15 @@ Le filigrane est répété sur chaque page à l'impression.
 Le bouton **Voir un aperçu de la facture**, au bas des réglages, ouvre une **facture d'exemple** (client et articles fictifs) montée avec tes réglages du moment : logo, filigrane, couleur, taxe, remarques. Ça permet de juger le rendu final sans créer de vraie facture — rien n'est enregistré. Le bouton d'impression de cette fenêtre ne sort que la facture, pas l'écran des réglages.
 
 Dans l'éditeur, le bouton **Envoyer** propose **Aperçu PDF** en premier : de quoi vérifier la facture telle qu'elle sortira avant de l'envoyer par email ou texto.
+
+## Catalogue d'articles (liste de prix)
+
+**Plus → Articles** garde les travaux et matériaux qui reviennent, avec leur prix à l'unité — « Poser des panneaux » à 3,00 $ / pi², par exemple. Deux façons de le remplir :
+
+- **Depuis une facture** : tape la description, le prix et l'unité sur la ligne, puis touche le bouton **signet** à côté. Le prix est gardé pour les prochaines fois. Réenregistrer une description déjà connue met le prix à jour au lieu de créer un doublon (la casse n'a pas d'importance).
+- **Depuis l'écran Articles** : bouton « + », avec recherche dans la liste quand elle s'allonge.
+
+Sur chaque ligne de facture, la liste déroulante **Article du catalogue** remplit d'un coup la description, le prix, l'unité et le caractère taxable ; il ne reste qu'à entrer la quantité. Le champ **unité** est libre, avec des suggestions courantes (ea, h, pi², pi lin., verge², jour, lot, km), et l'unité sort dans la colonne « Unité » du PDF.
 
 ## Commandes
 

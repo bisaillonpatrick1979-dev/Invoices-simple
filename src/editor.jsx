@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft, MoreVertical, ChevronRight, Send, Paperclip, Trash2,
-  Mail, MessageSquare, Printer, Clock, X, Maximize2, PenLine, Eye
+  Mail, MessageSquare, Printer, Clock, X, Maximize2, PenLine, Eye, BookmarkPlus
 } from 'lucide-react'
 import {
-  calcTotals, docStatus, fmtDate, lineTotal, money, newLine,
-  uid, today, emptyClient, withEvent
+  calcTotals, docStatus, fmtDate, itemFromLine, lineTotal, money, newLine,
+  uid, today, emptyClient, withEvent, UNITS
 } from './store.js'
 import { AppBar } from './lists.jsx'
 import { InvoicePaper } from './paper.jsx'
@@ -61,6 +61,7 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
   const totals = calcTotals(doc)
   const status = docStatus(doc)
   const isInvoice = doc.docType === 'invoice'
+  const catalog = [...items].sort((a, b) => String(a.description).localeCompare(String(b.description), 'fr'))
 
   const set = patch => onChange({ ...doc, ...patch })
   const setClient = patch => set({ client: { ...doc.client, ...patch } })
@@ -150,6 +151,17 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
     if (it) setLine(lineId, { description: it.description, unit: it.unit, rate: it.rate, taxable: it.taxable !== false })
   }
 
+  // Garder un prix pour les prochaines factures
+  const saveLineToCatalog = line => {
+    const result = itemFromLine(line, items)
+    if (!result) return alert("Écris d'abord une description sur la ligne.")
+    const { item, existing } = result
+    onSaveItem(item)
+    alert(existing
+      ? `« ${item.description} » mis à jour dans le catalogue : ${money(item.rate)} / ${item.unit}.`
+      : `« ${item.description} » ajouté au catalogue : ${money(item.rate)} / ${item.unit}.\n\nTu le retrouveras dans Plus → Articles et dans la liste déroulante des prochaines factures.`)
+  }
+
   const addPhotos = e => {
     const files = Array.from(e.target.files || [])
     Promise.all(files.map(file => new Promise(resolve => {
@@ -227,13 +239,22 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
           </div>
           <div className="line-extra">
             {items.length > 0 && <select value="" onChange={e => applyItem(l.id, e.target.value)}>
-              <option value="">Article sauvegardé...</option>
-              {items.map(it => <option key={it.id} value={it.id}>{it.description} — {money(it.rate)}</option>)}
+              <option value="">Article du catalogue...</option>
+              {catalog.map(it => <option key={it.id} value={it.id}>{it.description} — {money(it.rate)} / {it.unit}</option>)}
             </select>}
+            <input
+              className="unit-input"
+              list="unit-options"
+              placeholder="unité"
+              value={l.unit || ''}
+              onChange={e => setLine(l.id, { unit: e.target.value })}
+            />
             <label className="check small"><input type="checkbox" checked={l.taxable !== false} onChange={e => setLine(l.id, { taxable: e.target.checked })}/> {settings.taxLabel}</label>
+            <button className="icon" title="Enregistrer ce prix dans le catalogue" onClick={() => saveLineToCatalog(l)}><BookmarkPlus size={17}/></button>
             <button className="icon danger" onClick={() => set({ lines: doc.lines.filter(x => x.id !== l.id) })}><Trash2 size={16}/></button>
           </div>
         </div>)}
+        <datalist id="unit-options">{UNITS.map(u => <option key={u} value={u}/>)}</datalist>
         <Row onClick={() => set({ lines: [...doc.lines, newLine()] })}>
           <span className="hint">Ajouter un article</span>
           <span className="hint right-num">{doc.lines.length === 0 && <>0 × 0,00 $<br/>0,00 $</>}</span>

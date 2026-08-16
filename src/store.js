@@ -104,6 +104,27 @@ export const emptyExpense = { id: '', date: '', description: '', category: 'Mat�
 
 export const EXPENSE_CATEGORIES = ['Matériel', 'Essence', 'Outils', 'Sous-traitance', 'Repas', 'Autre']
 
+// Unités suggérées (le champ reste libre : on peut taper n'importe quoi)
+export const UNITS = ['ea', 'h', 'pi²', 'pi lin.', 'verge²', 'jour', 'lot', 'km']
+
+// Un article du catalogue construit à partir d'une ligne de facture.
+// Même description = mise à jour du prix plutôt qu'un doublon.
+export function itemFromLine(line, items) {
+  const description = String(line.description || '').trim()
+  if (!description) return null
+  const existing = items.find(i => String(i.description || '').trim().toLowerCase() === description.toLowerCase())
+  return {
+    item: {
+      id: existing?.id || uid(),
+      description,
+      unit: line.unit || 'ea',
+      rate: Number(line.rate || 0),
+      taxable: line.taxable !== false
+    },
+    existing: !!existing
+  }
+}
+
 export const newLine = () => ({ id: uid(), description: '', qty: 1, unit: 'ea', rate: 0, taxable: true })
 
 export const nextNumber = (docs, type, prefix) => {
