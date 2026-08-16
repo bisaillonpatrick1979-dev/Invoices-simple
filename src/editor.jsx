@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft, MoreVertical, ChevronRight, Send, Paperclip, Trash2,
-  Mail, MessageSquare, Printer, Clock, X, Maximize2, PenLine
+  Mail, MessageSquare, Printer, Clock, X, Maximize2, PenLine, Eye
 } from 'lucide-react'
 import {
   calcTotals, docStatus, fmtDate, lineTotal, money, newLine,
@@ -85,6 +85,13 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
     const body = encodeURIComponent(`Bonjour ${saved.client.name || ''}, votre ${isInvoice ? 'facture' : 'devis'} ${saved.number} de ${money(totals.total)} est prête. ${settings.business.name}`)
     window.location.href = `sms:${saved.client.phone}?&body=${body}`
     setSendOpen(false)
+  }
+
+  // Voir la facture telle qu'elle sortira, avant de l'envoyer
+  const previewPdf = () => {
+    persist()
+    setSendOpen(false)
+    setView('preview')
   }
 
   const printPdf = () => {
@@ -344,6 +351,8 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
     {view !== 'history' && <>
       {sendOpen && <div className="menu-backdrop no-print" onClick={() => setSendOpen(false)}>
         <div className="send-menu" onClick={e => e.stopPropagation()}>
+          <button onClick={previewPdf}><Eye size={19}/> Aperçu PDF</button>
+          <div className="send-menu-sep"/>
           <button onClick={sendEmail}><Mail size={19}/> Email</button>
           <button onClick={sendSms}><MessageSquare size={19}/> Texto</button>
           <button onClick={printPdf}><Printer size={19}/> PDF</button>

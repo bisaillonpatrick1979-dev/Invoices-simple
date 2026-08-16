@@ -284,6 +284,7 @@ button.edit-row:hover { background: #f8f9fb; }
 .hint { color: #8b919c; }
 .right-num { text-align: right; font-size: 13.5px; line-height: 1.4; }
 .small-note { margin: -6px 0 12px; font-size: 13px; }
+.small-note.centered { text-align: center; margin: 8px 0 4px; }
 
 .row-detail {
   padding: 6px 16px 16px;
@@ -392,6 +393,7 @@ button.icon.danger, .icon.danger { color: var(--red); }
 }
 .outline-btn:hover { background: #f4f5fd; }
 .outline-btn.danger { border-color: #f3c1c1; color: var(--red); }
+.outline-btn.with-icon { display: flex; align-items: center; justify-content: center; gap: 9px; }
 
 button.primary {
   display: inline-flex;
@@ -471,6 +473,38 @@ button.primary.wide { width: 100%; margin-top: 12px; }
   font-size: 15.5px;
 }
 .send-menu button:hover { background: #f4f5f8; }
+.send-menu-sep { height: 1px; background: var(--line); margin: 2px 0; }
+
+/* Aperçu plein écran du PDF */
+.paper-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+.paper-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--blue);
+  color: #fff;
+  padding: 14px 12px 14px 18px;
+  padding-top: calc(14px + env(safe-area-inset-top));
+}
+.paper-modal-head b { font-size: 17px; font-weight: 600; }
+.paper-modal-head small { display: block; font-size: 12.5px; opacity: .8; margin-top: 2px; }
+.paper-modal-head .icon { color: #fff; }
+.paper-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 10px calc(24px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 
 .sheet {
   background: #fff;
@@ -794,6 +828,9 @@ button.primary.wide { width: 100%; margin-top: 12px; }
 @media print {
   body { background: #fff; }
   .no-print, .appbar, .bottombar, .fab, .send-fab, .expand-btn { display: none !important; }
+  /* l'aperçu plein écran s'imprime comme une page normale */
+  .paper-modal { position: static; background: none; }
+  .paper-modal-body { padding: 0; overflow: visible; }
   /* la page imprimée est le papier, pas le fond gris de l'app */
   .app, .phone { background: #fff; min-height: 0; }
   .phone { max-width: none; padding: 0; }

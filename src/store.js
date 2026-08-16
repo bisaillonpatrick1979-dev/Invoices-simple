@@ -141,6 +141,33 @@ export const newDocument = (type, settings, docs) => ({
   updatedAt: new Date().toISOString()
 })
 
+// Facture fictive : sert à voir le rendu final du PDF (logo, filigrane,
+// couleur, taxe, textes) depuis les réglages, sans créer une vraie facture.
+export function sampleDocument(settings) {
+  const line = (description, qty, unit, rate) => ({ id: uid(), description, qty, unit, rate, taxable: true })
+  return {
+    ...newDocument('invoice', settings, []),
+    number: `${settings.invoicePrefix}0001`,
+    dueDate: '',
+    client: {
+      ...emptyClient,
+      name: 'Client Exemple inc.',
+      address: '123, rue Principale',
+      city: 'Calgary, AB  T2P 1J9',
+      phone: '403-555-0142',
+      email: 'client@exemple.ca'
+    },
+    lines: [
+      line("Main-d'œuvre — installation", 8, 'h', 85),
+      line('Matériaux (bois traité)', 1, 'ea', 450),
+      line("Location d'équipement", 2, 'jour', 120),
+      line('Déplacement', 1, 'ea', 60)
+    ],
+    notes: settings.defaultNotes || 'Merci pour votre confiance.',
+    history: []
+  }
+}
+
 export const withEvent = (doc, label) => ({
   ...doc,
   history: [...(doc.history || []), { id: uid(), at: new Date().toISOString(), label }]
