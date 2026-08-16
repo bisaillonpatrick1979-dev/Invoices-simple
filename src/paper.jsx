@@ -1,5 +1,26 @@
 import React from 'react'
-import { defaultWatermark, fmtDate, lineTotal, money } from './store.js'
+import { Printer, X } from 'lucide-react'
+import { calcTotals, defaultWatermark, fmtDate, lineTotal, money } from './store.js'
+
+// Aperçu plein écran d'un document, avec bouton d'impression / PDF
+export function PaperPreview({ settings, doc, title = 'Aperçu du PDF', note, onClose }) {
+  const print = () => setTimeout(() => window.print(), 60)
+  return <div className="paper-modal">
+    <div className="paper-modal-head no-print">
+      <div>
+        <b>{title}</b>
+        {note && <small>{note}</small>}
+      </div>
+      <button className="icon" onClick={onClose} aria-label="Fermer"><X size={22}/></button>
+    </div>
+    <div className="paper-modal-body">
+      <InvoicePaper settings={settings} doc={doc} totals={calcTotals(doc)}/>
+      <button className="outline-btn with-icon no-print" onClick={print}>
+        <Printer size={18}/> Télécharger / imprimer le PDF
+      </button>
+    </div>
+  </div>
+}
 
 // Filigrane : le logo de la compagnie en pâle derrière le document, ou du texte
 // (le nom de la compagnie par défaut) si aucun logo n'est chargé.

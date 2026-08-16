@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
-import { ArrowLeft } from 'lucide-react'
-import { defaultWatermark, emptySettings, readImageFile } from './store.js'
+import { ArrowLeft, Eye } from 'lucide-react'
+import { defaultWatermark, emptySettings, readImageFile, sampleDocument } from './store.js'
 import { AppBar } from './lists.jsx'
-import { Watermark } from './paper.jsx'
+import { PaperPreview, Watermark } from './paper.jsx'
 
 function Field({ label, children }) {
   return <label className="field"><span>{label}</span>{children}</label>
@@ -25,6 +25,7 @@ export function SettingsScreen({ settings, setSettings, onBack }) {
   const b = settings.business
   const wm = { ...defaultWatermark, ...(settings.watermark || {}) }
   const [logoError, setLogoError] = useState('')
+  const [previewOpen, setPreviewOpen] = useState(false)
   const setBiz = patch => setSettings({ ...settings, business: { ...b, ...patch } })
   const setWm = patch => setSettings({ ...settings, watermark: { ...wm, ...patch } })
 
@@ -41,7 +42,7 @@ export function SettingsScreen({ settings, setSettings, onBack }) {
   return <section className="screen">
     <AppBar title="Réglages" left={<button className="icon light" onClick={onBack}><ArrowLeft size={22}/></button>}/>
 
-    <div className="editor-body">
+    <div className={previewOpen ? 'editor-body no-print' : 'editor-body'}>
       <div className="edit-card padded">
         <h2 className="section-title">Informations relatives à l'entreprise</h2>
         <p className="hint small-note">Ces infos sortent automatiquement sur chaque PDF.</p>
@@ -106,6 +107,11 @@ export function SettingsScreen({ settings, setSettings, onBack }) {
         </>}
       </div>
 
+      <button className="outline-btn with-icon" onClick={() => setPreviewOpen(true)}>
+        <Eye size={18}/> Voir un aperçu de la facture
+      </button>
+      <p className="hint small-note centered">Ouvre une facture d'exemple avec tes réglages actuels.</p>
+
       <div className="edit-card padded">
         <h2 className="section-title">Taxe & documents</h2>
         <div className="pair">
@@ -142,5 +148,13 @@ export function SettingsScreen({ settings, setSettings, onBack }) {
 
       <button className="outline-btn danger" onClick={() => { if (confirm('Remettre les réglages par défaut ? (les factures et clients restent)')) setSettings(emptySettings) }}>Réinitialiser les réglages</button>
     </div>
+
+    {previewOpen && <PaperPreview
+      settings={settings}
+      doc={sampleDocument(settings)}
+      title="Aperçu de la facture"
+      note="Exemple fictif — aucune facture n'est créée"
+      onClose={() => setPreviewOpen(false)}
+    />}
   </section>
 }
