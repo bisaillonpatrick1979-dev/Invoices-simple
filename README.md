@@ -68,7 +68,17 @@ Le champ **unité** est libre, avec des suggestions courantes (ea, h, pi², pi l
 
 ## Assistant IA
 
-**Plus → Assistant IA.** Tu racontes ce que tu as fait — à voix haute ou au clavier — et il monte la facture. Tu lui envoies la photo d'une liste de travaux, il la lit et remplit la facture ou le catalogue. Tu lui demandes tes chiffres, il répond.
+**La bulle mauve, en bas à droite de n'importe quel écran.** Tu racontes ce que tu as fait — à voix haute ou au clavier — et il monte la facture.
+
+### La bulle, partout
+
+L'assistant est à une touche depuis **tous les onglets** (Factures, Devis, Comptabilité, Paiements), depuis les écrans du menu Plus, et jusque **dans l'éditeur de facture**. Un appui l'ouvre par-dessus l'écran en cours ; la flèche te ramène exactement où tu étais, sans rien perdre de ce que tu remplissais.
+
+- **Un glissement la déplace** — comme la bulle « + ». Elle retient sa place d'un écran à l'autre et d'une session à l'autre, et ne peut pas sortir de l'écran.
+- **La conversation reste.** Ferme le panneau pour aller vérifier une facture, rouvre : tout est encore là. Une réponse déjà partie continue d'arriver, et la bulle respire pendant que ça travaille.
+- **Le micro se tait** dès que le panneau se ferme. Rien n'écoute derrière un écran fermé.
+
+(**Plus → Assistant IA** ouvre le même panneau.) Tu lui envoies la photo d'une liste de travaux, il la lit et remplit la facture ou le catalogue. Tu lui demandes tes chiffres, il répond.
 
 ### Lui parler
 
@@ -165,9 +175,9 @@ La **clé API de l'assistant IA ne monte jamais** dans le nuage. Elle a été sa
 - **Les suppressions voyagent.** Une facture effacée sur le téléphone est marquée supprimée dans la base, pour que le portable l'enlève aussi — au lieu de la faire réapparaître.
 - **Si la même ligne a changé des deux bords**, c'est l'appareil que tu as en main qui gagne. Et une ligne supprimée ailleurs mais retouchée ici revit plutôt que de perdre ton travail.
 
-## Bulle « + » déplaçable
+## Bulles déplaçables
 
-Le bouton rond « + » peut être glissé où on veut à l'écran : un appui ajoute, un glissement déplace. La position est retenue d'un écran à l'autre et d'une session à l'autre, et la bulle ne peut pas sortir de l'écran.
+Deux boutons ronds flottent au-dessus de l'app : le **« + » bleu** (ajouter) et la **bulle mauve de l'assistant**. Chacune se glisse où on veut — un appui agit, un glissement déplace — garde sa place d'une session à l'autre, et ne peut pas sortir de l'écran. Au premier lancement, l'assistant se pose au-dessus du « + » pour ne pas le couvrir.
 
 ## Commandes
 

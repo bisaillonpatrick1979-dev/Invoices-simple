@@ -12,10 +12,11 @@ const clampFab = p => ({
   bottom: Math.min(Math.max(p.bottom, FAB_MIN_BOTTOM), Math.max(FAB_MIN_BOTTOM, window.innerHeight - FAB_SIZE - 6))
 })
 
-// Bulle « + » déplaçable : un appui ajoute, un glissement la repositionne.
-// La position est retenue d'un écran à l'autre et d'une session à l'autre.
-export function Fab({ onClick, title = 'Ajouter' }) {
-  const [pos, setPos] = useState(() => load('is_fab_pos', null))
+// Bulle déplaçable : un appui agit, un glissement la repositionne. La position
+// est retenue d'un écran à l'autre et d'une session à l'autre.
+// Partagé par la bulle « + » et la bulle de l'assistant.
+export function useFabDrag(key, fallback, onClick) {
+  const [pos, setPos] = useState(() => load(key, null))
   const drag = useRef(null)
 
   useEffect(() => {
@@ -25,8 +26,10 @@ export function Fab({ onClick, title = 'Ajouter' }) {
     return () => window.removeEventListener('resize', onResize)
   }, [pos])
 
+  useEffect(() => { if (pos) save(key, pos) }, [pos, key])
+
   const down = e => {
-    drag.current = { x: e.clientX, y: e.clientY, moved: false, base: pos || FAB_DEFAULT }
+    drag.current = { x: e.clientX, y: e.clientY, moved: false, base: pos || fallback }
     // sans capture le glissement marche quand même : ne jamais casser l'appui
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* ignore */ }
   }
@@ -47,17 +50,22 @@ export function Fab({ onClick, title = 'Ajouter' }) {
     if (d && !d.moved) onClick()
   }
 
-  useEffect(() => { if (pos) save('is_fab_pos', pos) }, [pos])
+  return {
+    style: pos ? { right: pos.right, bottom: pos.bottom } : undefined,
+    handlers: {
+      onPointerDown: down,
+      onPointerMove: move,
+      onPointerUp: up,
+      onPointerCancel: () => { drag.current = null }
+    }
+  }
+}
 
-  return <button
-    className="fab no-print"
-    title={title}
-    style={pos ? { right: pos.right, bottom: pos.bottom } : undefined}
-    onPointerDown={down}
-    onPointerMove={move}
-    onPointerUp={up}
-    onPointerCancel={() => { drag.current = null }}
-  ><Plus size={28}/></button>
+export function Fab({ onClick, title = 'Ajouter' }) {
+  const { style, handlers } = useFabDrag('is_fab_pos', FAB_DEFAULT, onClick)
+  return <button className="fab no-print" title={title} style={style} {...handlers}>
+    <Plus size={28}/>
+  </button>
 }
 
 const TABS = {

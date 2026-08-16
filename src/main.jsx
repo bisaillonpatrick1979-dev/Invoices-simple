@@ -10,7 +10,7 @@ import { DocumentEditor } from './editor.jsx'
 import { ClientsScreen, ItemsScreen, ExpensesScreen } from './catalog.jsx'
 import { ComptaScreen, RapportsScreen, PaiementsScreen } from './compta.jsx'
 import { SettingsScreen } from './settings.jsx'
-import { AssistantScreen } from './assistant.jsx'
+import { AiFab, AssistantScreen } from './assistant.jsx'
 import { useCloudSync } from './cloudui.jsx'
 import './styles.css'
 
@@ -46,6 +46,10 @@ function App() {
   const [docs, setDocs] = useState(() => migrated?.docs || load('is_docs', []))
   const [editing, setEditing] = useState(null)
   const [dirty, setDirty] = useState(0)
+  // L'assistant s'ouvre par-dessus l'écran courant : on revient exactement où
+  // on était en le fermant, depuis n'importe quel onglet.
+  const [aiOpen, setAiOpen] = useState(false)
+  const [aiBusy, setAiBusy] = useState(false)
 
   useEffect(() => save('is_settings', settings), [settings])
   useEffect(() => save('is_clients', clients), [clients])
@@ -155,7 +159,26 @@ function App() {
         {tab === 'articles' && <ItemsScreen items={items} setItems={tracked(setItems)} onBack={() => setTab('factures')}/>}
         {tab === 'depenses' && <ExpensesScreen expenses={expenses} setExpenses={tracked(setExpenses)} onBack={() => setTab('factures')}/>}
         {tab === 'rapports' && <RapportsScreen docs={docs} onBack={() => setTab('factures')}/>}
-        {tab === 'assistant' && <AssistantScreen
+        {tab === 'settings' && <SettingsScreen settings={settings} setSettings={tracked(setSettings)} cloud={cloud} onBack={() => setTab('factures')}/>}
+      </>
+
+  const activeNav = editing
+    ? (editing.docType === 'invoice' ? 'factures' : 'devis')
+    : (['clients', 'articles', 'depenses', 'rapports', 'settings'].includes(tab) ? 'plus' : tab)
+
+  return (
+    <div className="app">
+      <div className="phone">{screen}</div>
+
+      {/* Sur tous les onglets et jusque dans l'éditeur : l'assistant est à une
+          touche, sans perdre l'écran en cours. */}
+      {!aiOpen && <AiFab busy={aiBusy} onClick={() => { setPlusOpen(false); setAiOpen(true) }}/>}
+
+      {/* Toujours monté, seulement caché : la conversation est encore là en
+          rouvrant la bulle, et une réponse partie continue d'arriver. */}
+      <div className={aiOpen ? 'assistant-overlay no-print' : 'assistant-overlay hidden no-print'}>
+        <AssistantScreen
+          open={aiOpen}
           settings={settings}
           docs={docs}
           expenses={expenses}
@@ -163,20 +186,12 @@ function App() {
           items={items}
           onCreateDoc={upsertDoc}
           onSaveItems={addItems}
-          onOpenDoc={doc => { setTab('factures'); setEditing(doc) }}
-          onOpenSettings={() => setTab('settings')}
-          onBack={() => setTab('factures')}
-        />}
-        {tab === 'settings' && <SettingsScreen settings={settings} setSettings={tracked(setSettings)} cloud={cloud} onBack={() => setTab('factures')}/>}
-      </>
-
-  const activeNav = editing
-    ? (editing.docType === 'invoice' ? 'factures' : 'devis')
-    : (['assistant', 'clients', 'articles', 'depenses', 'rapports', 'settings'].includes(tab) ? 'plus' : tab)
-
-  return (
-    <div className="app">
-      <div className="phone">{screen}</div>
+          onBusy={setAiBusy}
+          onOpenDoc={doc => { setAiOpen(false); setTab('factures'); setEditing(doc) }}
+          onOpenSettings={() => { setAiOpen(false); setEditing(null); setTab('settings') }}
+          onBack={() => setAiOpen(false)}
+        />
+      </div>
 
       {plusOpen && <div className="sheet-backdrop no-print" onClick={() => setPlusOpen(false)}>
         <div className="sheet" onClick={e => e.stopPropagation()}>
@@ -185,7 +200,14 @@ function App() {
             <button className="icon" onClick={() => setPlusOpen(false)}><X size={20}/></button>
           </div>
           {PLUS_ITEMS.map(it => (
-            <button key={it.id} className="sheet-row" onClick={() => { setPlusOpen(false); setEditing(null); setTab(it.id) }}>
+            <button key={it.id} className="sheet-row" onClick={() => {
+              setPlusOpen(false)
+              // L'assistant s'ouvre en panneau, pas en onglet : d'où qu'on
+              // vienne, on retombe sur le même écran en le fermant.
+              if (it.id === 'assistant') return setAiOpen(true)
+              setEditing(null)
+              setTab(it.id)
+            }}>
               <it.icon size={21}/>
               <span>{it.label}</span>
             </button>

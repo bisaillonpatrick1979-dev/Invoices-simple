@@ -968,6 +968,37 @@ button.primary.wide { width: 100%; margin-top: 12px; }
    texte garde de la place sur un écran de téléphone */
 .chat-row > .icon, .chat-row > label.icon { flex: none; padding: 8px; cursor: pointer; }
 
+/* ===== Bulle de l'assistant, sur tous les écrans ===== */
+.ai-fab {
+  /* par défaut au-dessus de la bulle « + », qu'elle ne doit pas couvrir */
+  bottom: 160px;
+  width: 52px; height: 52px;
+  background: linear-gradient(140deg, #6c7cf0, #4353c9);
+  box-shadow: 0 6px 18px rgba(67, 83, 201, .38), 0 0 0 4px rgba(108, 124, 240, .13);
+}
+.ai-fab:hover { background: linear-gradient(140deg, #7b89f5, #3a49b8); }
+/* pendant que l'assistant travaille, la bulle respire */
+.ai-fab.busy { animation: ai-breathe 1.6s ease-in-out infinite; }
+@keyframes ai-breathe {
+  50% { box-shadow: 0 6px 18px rgba(67, 83, 201, .38), 0 0 0 12px rgba(108, 124, 240, 0); }
+}
+
+/* L'assistant s'ouvre par-dessus l'écran courant, barre du bas comprise :
+   c'est un panneau, on en sort par la flèche. */
+.assistant-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  background: var(--bg);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.assistant-overlay.hidden { display: none; }
+.assistant-overlay > .screen { max-width: 860px; margin: 0 auto; }
+/* plus de barre d'onglets dessous : le champ de saisie descend au bas */
+.assistant-overlay .chat-bar { bottom: env(safe-area-inset-bottom); }
+.assistant-overlay .chat-body { padding-bottom: 130px; }
+
 /* ===== Nuage ===== */
 .cloud-state {
   display: flex;

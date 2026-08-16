@@ -9,7 +9,24 @@ import {
 } from './store.js'
 import { askAi, buildSystemPrompt, parseAction, splitDataUrl } from './ai.js'
 import { dictationSupported, speak, stopSpeaking, useDictation } from './voice.js'
-import { AppBar } from './lists.jsx'
+import { AppBar, useFabDrag } from './lists.jsx'
+
+// La bulle de l'assistant se pose au-dessus de la bulle « + » pour ne pas la
+// couvrir au premier lancement ; ensuite chacune garde l'endroit où on la met.
+const AI_FAB_DEFAULT = { right: 18, bottom: 160 }
+
+// Bulle IA, présente sur tous les écrans : une touche ouvre l'assistant
+// par-dessus ce qu'on était en train de faire, un glissement la déplace.
+export function AiFab({ onClick, busy }) {
+  const { style, handlers } = useFabDrag('is_aifab_pos', AI_FAB_DEFAULT, onClick)
+  return <button
+    className={busy ? 'fab ai-fab busy no-print' : 'fab ai-fab no-print'}
+    title="Assistant IA"
+    aria-label="Ouvrir l'assistant IA"
+    style={style}
+    {...handlers}
+  ><Sparkles size={25}/></button>
+}
 
 const EXAMPLES = [
   "J'ai posé 250 pi² de panneaux à 3 $ chez Marc Tremblay, plus 4 h de main-d'œuvre",
@@ -44,8 +61,8 @@ const cleanClient = c => ({
 })
 
 export function AssistantScreen({
-  settings, docs, expenses, clients, items,
-  onCreateDoc, onSaveItems, onOpenDoc, onOpenSettings, onBack
+  settings, docs, expenses, clients, items, open = true,
+  onCreateDoc, onSaveItems, onOpenDoc, onOpenSettings, onBusy, onBack
 }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
@@ -90,9 +107,20 @@ export function AssistantScreen({
     if (dict.error) push({ role: 'error', text: dict.error })
   }, [dict.error])
 
-  // Quitter l'écran coupe le micro et la voix : rien ne doit continuer à
-  // écouter en arrière-plan.
+  // La conversation survit à la fermeture du panneau — on la retrouve en
+  // rouvrant la bulle. Mais le micro, lui, se tait : rien ne doit continuer à
+  // écouter derrière un écran fermé.
+  useEffect(() => {
+    if (open) return
+    stopSpeaking()
+    dict.stop()
+    handsFreeRef.current = false
+    setHandsFree(false)
+  }, [open])
+
   useEffect(() => () => stopSpeaking(), [])
+
+  useEffect(() => { onBusy?.(busy) }, [busy])
 
   const push = msg => setMessages(list => [...list, { id: uid(), ...msg }])
 
