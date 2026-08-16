@@ -1,24 +1,41 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
-import { emptySettings } from './store.js'
+import { defaultWatermark, emptySettings, readImageFile } from './store.js'
 import { AppBar } from './lists.jsx'
+import { Watermark } from './paper.jsx'
 
 function Field({ label, children }) {
   return <label className="field"><span>{label}</span>{children}</label>
 }
 
+function Slider({ label, value, suffix, onChange, ...rest }) {
+  return <div className="slider">
+    <div className="slider-head"><span>{label}</span><b>{value}{suffix}</b></div>
+    <input type="range" value={value} onChange={e => onChange(Number(e.target.value))} {...rest}/>
+  </div>
+}
+
 const ACCENTS = ['#4353c9', '#2e7d32', '#0f172a', '#b45309', '#7b1fa2', '#c62828']
+const WM_MODES = [{ id: 'logo', label: 'Logo' }, { id: 'text', label: 'Texte' }, { id: 'none', label: 'Aucun' }]
+
+// Poids approximatif d'une image en data URL (base64 = 4/3 des octets)
+const dataUrlWeight = src => `${Math.round((String(src).length * 0.75) / 1024)} ko`
 
 export function SettingsScreen({ settings, setSettings, onBack }) {
   const b = settings.business
+  const wm = { ...defaultWatermark, ...(settings.watermark || {}) }
+  const [logoError, setLogoError] = useState('')
   const setBiz = patch => setSettings({ ...settings, business: { ...b, ...patch } })
+  const setWm = patch => setSettings({ ...settings, watermark: { ...wm, ...patch } })
 
   const logoChange = e => {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => setSettings({ ...settings, logo: reader.result })
-    reader.readAsDataURL(file)
+    setLogoError('')
+    readImageFile(file)
+      .then(logo => setSettings({ ...settings, logo }))
+      .catch(() => setLogoError("Impossible de lire cette image. Essaie un fichier PNG ou JPG."))
   }
 
   return <section className="screen">
@@ -39,10 +56,54 @@ export function SettingsScreen({ settings, setSettings, onBack }) {
         <Field label="Site web"><input value={b.website} onChange={e => setBiz({ website: e.target.value })}/></Field>
         <Field label="Adresse compagnie"><textarea rows={2} value={b.address} onChange={e => setBiz({ address: e.target.value })}/></Field>
         <Field label="Logo compagnie"><input type="file" accept="image/*" onChange={logoChange}/></Field>
-        {settings.logo && <div className="logo-preview">
-          <img src={settings.logo}/>
-          <button className="link-btn" onClick={() => setSettings({ ...settings, logo: '' })}>Retirer logo</button>
-        </div>}
+        {logoError && <p className="hint small-note">{logoError}</p>}
+        {settings.logo && <>
+          <div className="logo-preview">
+            <img src={settings.logo}/>
+            <div className="row-text">
+              <small>Image réduite à 600 px ({dataUrlWeight(settings.logo)})</small>
+              <button className="link-btn" onClick={() => setSettings({ ...settings, logo: '' })}>Retirer le logo</button>
+            </div>
+          </div>
+          <label className="check">
+            <input type="checkbox" checked={settings.logoOnPdf !== false} onChange={e => setSettings({ ...settings, logoOnPdf: e.target.checked })}/>
+            Afficher le logo en haut de la facture
+          </label>
+        </>}
+      </div>
+
+      <div className="edit-card padded">
+        <h2 className="section-title">Filigrane</h2>
+        <p className="hint small-note">Le motif pâle imprimé derrière chaque facture et chaque devis.</p>
+
+        <div className="seg-row">
+          {WM_MODES.map(m => <button
+            key={m.id}
+            className={wm.mode === m.id ? 'active' : ''}
+            onClick={() => setWm({ mode: m.id })}
+          >{m.label}</button>)}
+        </div>
+
+        {wm.mode === 'logo' && !settings.logo &&
+          <p className="hint small-note">Aucun logo chargé : c'est le nom de la compagnie qui sera utilisé. Ajoute un logo ci-dessus pour l'imprimer en filigrane.</p>}
+
+        {wm.mode === 'text' &&
+          <Field label="Texte du filigrane">
+            <input value={wm.text} placeholder={b.name} onChange={e => setWm({ text: e.target.value })}/>
+          </Field>}
+
+        {wm.mode !== 'none' && <>
+          <Slider label="Opacité" value={wm.opacity} suffix=" %" min={2} max={40} step={1} onChange={v => setWm({ opacity: v })}/>
+          <Slider label="Taille" value={wm.size} suffix=" %" min={20} max={100} step={5} onChange={v => setWm({ size: v })}/>
+          <Slider label="Rotation" value={wm.rotate} suffix="°" min={-90} max={90} step={3} onChange={v => setWm({ rotate: v })}/>
+          <div className="wm-preview">
+            <Watermark settings={settings} scale={0.38}/>
+            <div className="wm-lines">
+              {Array.from({ length: 6 }, (_, i) => <span key={i}/>)}
+            </div>
+          </div>
+          <button className="link-btn" onClick={() => setWm({ ...defaultWatermark, mode: wm.mode })}>Remettre le filigrane par défaut</button>
+        </>}
       </div>
 
       <div className="edit-card padded">

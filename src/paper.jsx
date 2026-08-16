@@ -1,16 +1,40 @@
 import React from 'react'
-import { fmtDate, lineTotal, money } from './store.js'
+import { defaultWatermark, fmtDate, lineTotal, money } from './store.js'
+
+// Filigrane : le logo de la compagnie en pâle derrière le document, ou du texte
+// (le nom de la compagnie par défaut) si aucun logo n'est chargé.
+export function Watermark({ settings, scale = 1 }) {
+  const wm = { ...defaultWatermark, ...(settings.watermark || {}) }
+  if (wm.mode === 'none') return null
+
+  const style = {
+    '--wm-size': Math.max(5, Number(wm.size) || defaultWatermark.size),
+    '--wm-scale': scale,
+    opacity: Math.min(Math.max(Number(wm.opacity) || 0, 0), 100) / 100,
+    transform: `rotate(${Number(wm.rotate) || 0}deg)`
+  }
+
+  if (wm.mode === 'logo' && settings.logo)
+    return <div className="watermark" style={style} aria-hidden="true"><img src={settings.logo} alt=""/></div>
+
+  const text = (wm.text || settings.business?.name || '').trim()
+  if (!text) return null
+  // Un nom long doit rétrécir, sinon le mot le plus long est coupé en deux
+  const longest = Math.max(...text.split(/\s+/).map(w => w.length), 1)
+  style['--wm-scale'] = scale * Math.min(1, 10 / longest)
+  return <div className="watermark text" style={style} aria-hidden="true">{text}</div>
+}
 
 // Le document PDF (aperçu + impression), style professionnel avec zébrures et filigrane
 export function InvoicePaper({ settings, doc, totals }) {
   const b = settings.business
   const title = doc.docType === 'invoice' ? 'FACTURE' : 'DEVIS'
   return <article className="invoice-paper" style={{ '--accent': settings.accent }}>
-    <div className="watermark">{b.name}</div>
+    <Watermark settings={settings}/>
 
     <header className="pdf-header">
       <div className="brand">
-        {settings.logo && <img src={settings.logo}/>}
+        {settings.logo && settings.logoOnPdf !== false && <img src={settings.logo}/>}
         <div>
           <h1>{b.name}</h1>
           {b.owner && <p>{b.owner}</p>}

@@ -590,6 +590,45 @@ button.primary.wide { width: 100%; margin-top: 12px; }
 .field > span { font-size: 12.5px; font-weight: 600; color: var(--muted); }
 .logo-preview { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
 .logo-preview img { max-height: 64px; border: 1px solid var(--line); border-radius: 8px; padding: 4px; background: #fff; }
+.logo-preview .row-text small { color: var(--muted); font-size: 12.5px; }
+
+/* Sélecteur segmenté (mode du filigrane) */
+.seg-row { display: flex; gap: 6px; background: #eef0f4; border-radius: 10px; padding: 4px; margin-bottom: 12px; }
+.seg-row button {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
+  padding: 9px 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.seg-row button.active { background: #fff; color: var(--blue); box-shadow: 0 1px 4px rgba(15, 23, 42, .14); }
+
+/* Curseurs (opacité, taille, rotation) */
+.slider { margin-bottom: 12px; }
+.slider-head { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+.slider-head b { color: var(--ink); font-weight: 700; }
+.slider input[type=range] { width: 100%; accent-color: var(--blue); }
+
+/* Aperçu du filigrane dans les réglages */
+.wm-preview {
+  position: relative;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  height: 150px;
+  padding: 14px 16px;
+  margin-top: 4px;
+}
+.wm-preview .wm-lines { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 7px; }
+.wm-preview .wm-lines span { height: 7px; border-radius: 4px; background: #e7eaf0; }
+.wm-preview .wm-lines span:nth-child(1) { width: 42%; background: #d6dbe4; height: 11px; }
+.wm-preview .wm-lines span:nth-child(4) { width: 65%; }
+.wm-preview .wm-lines span:last-child { width: 30%; align-self: flex-end; background: #d6dbe4; }
+.wm-preview .watermark img { max-height: 88%; }
 .accent-row { display: flex; gap: 10px; }
 .accent { width: 36px; height: 36px; border-radius: 50%; border: 3px solid transparent; }
 .accent.active { border-color: var(--ink); box-shadow: 0 0 0 2px #fff inset; }
@@ -625,19 +664,35 @@ button.primary.wide { width: 100%; margin-top: 12px; }
   min-height: 640px;
 }
 .watermark {
+  --wm-size: 60;
+  --wm-scale: 1;
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
-  font-size: 62px;
-  font-weight: 800;
-  color: rgba(15, 23, 42, .045);
-  transform: rotate(-24deg);
+  /* flex et non grid : une piste grid s'étire sur l'image et les max-* en % ne bornent plus rien */
+  display: flex;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;
-  text-align: center;
-  padding: 0 30px;
-  word-break: break-word;
+  z-index: 0;
 }
+.watermark img {
+  width: calc(var(--wm-size) * 1%);
+  max-width: 94%;
+  max-height: 94%;
+  object-fit: contain;
+}
+.watermark.text {
+  font-size: min(calc(var(--wm-size) * var(--wm-scale) * 1.1px), 17vw);
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.05;
+  text-align: center;
+  max-width: 88%;
+  /* coupe entre les mots, pas au milieu d'un mot */
+  overflow-wrap: break-word;
+}
+/* le contenu de la facture passe par-dessus le filigrane */
+.invoice-paper > *:not(.watermark) { position: relative; z-index: 1; }
 .pdf-header {
   display: flex;
   justify-content: space-between;
@@ -739,6 +794,8 @@ button.primary.wide { width: 100%; margin-top: 12px; }
 @media print {
   body { background: #fff; }
   .no-print, .appbar, .bottombar, .fab, .send-fab, .expand-btn { display: none !important; }
+  /* la page imprimée est le papier, pas le fond gris de l'app */
+  .app, .phone { background: #fff; min-height: 0; }
   .phone { max-width: none; padding: 0; }
   .preview-body { padding: 0; }
   .invoice-paper {
@@ -748,6 +805,9 @@ button.primary.wide { width: 100%; margin-top: 12px; }
     max-width: none;
     margin: 0;
     padding: 10mm 8mm;
+    min-height: 100vh;
   }
   .watermark { position: fixed; }
+  /* sans ça, certains navigateurs impriment le filigrane en blanc */
+  .watermark img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

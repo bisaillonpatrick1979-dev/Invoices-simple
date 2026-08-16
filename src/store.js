@@ -13,7 +13,28 @@ export const fmtDate = iso => {
 export const load = (key, fallback) => {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback } catch { return fallback }
 }
-export const save = (key, value) => localStorage.setItem(key, JSON.stringify(value))
+
+let quotaWarned = false
+export const save = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // Espace du navigateur plein (souvent une image trop lourde : logo, photos)
+    if (!quotaWarned) {
+      quotaWarned = true
+      alert("La mémoire du navigateur est pleine : les dernières modifications n'ont pas pu être enregistrées.\n\nRetire des photos ou un logo trop lourd, puis réessaie.")
+    }
+  }
+}
+
+// Filigrane imprimé en pâle derrière chaque facture
+export const defaultWatermark = {
+  mode: 'logo',   // 'logo' | 'text' | 'none'
+  text: '',       // vide = nom de la compagnie
+  opacity: 8,     // %
+  size: 60,       // % de la largeur du document
+  rotate: -24     // degrés
+}
 
 export const emptySettings = {
   business: {
@@ -27,6 +48,8 @@ export const emptySettings = {
     gst: ''
   },
   logo: '',
+  logoOnPdf: true,
+  watermark: { ...defaultWatermark },
   taxLabel: 'Gst',
   taxRate: 5,
   taxDefault: true,
@@ -35,6 +58,44 @@ export const emptySettings = {
   estimatePrefix: 'EST',
   defaultNotes: '',
   paymentInstructions: ''
+}
+
+// Complète les réglages enregistrés avec les clés ajoutées par les nouvelles versions
+export const mergeSettings = stored => ({
+  ...emptySettings,
+  ...stored,
+  business: { ...emptySettings.business, ...(stored?.business || {}) },
+  watermark: { ...defaultWatermark, ...(stored?.watermark || {}) }
+})
+
+// Lit une image et la redimensionne : le localStorage est limité (~5 Mo),
+// une photo de logo brute le remplirait à elle seule.
+export function readImageFile(file, maxSize = 600) {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) return reject(new Error('Ce fichier n\'est pas une image'))
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('Lecture du fichier impossible'))
+    reader.onload = () => {
+      const src = String(reader.result)
+      const img = new Image()
+      // SVG : le canvas ne sait pas toujours le redimensionner, on garde l'original
+      img.onerror = () => file.type === 'image/svg+xml' ? resolve(src) : reject(new Error('Image illisible'))
+      img.onload = () => {
+        if (!img.width || !img.height) return resolve(src)
+        const ratio = Math.min(1, maxSize / Math.max(img.width, img.height))
+        if (ratio === 1 && src.length < 200_000) return resolve(src)
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.round(img.width * ratio)
+        canvas.height = Math.round(img.height * ratio)
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+        // PNG pour garder la transparence d'un logo, JPEG pour une photo
+        const png = file.type === 'image/png' || file.type === 'image/webp'
+        resolve(canvas.toDataURL(png ? 'image/png' : 'image/jpeg', 0.9))
+      }
+      img.src = src
+    }
+    reader.readAsDataURL(file)
+  })
 }
 
 export const emptyClient = { id: '', name: '', phone: '', email: '', address: '', city: '', notes: '' }

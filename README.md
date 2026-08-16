@@ -15,7 +15,7 @@ Application de facturation avec une interface calquée sur les captures d'écran
 Onglets **Modifier / Aperçu / Historique** comme l'app de référence :
 
 - **Modifier** : numéro, date, rangée « À Client » (avec clients en mémoire), articles (qté × prix, taxable par ligne, catalogue d'articles), Sous-total, Remise ($ ou %), Gst 5 % (nom et taux modifiables), Total, Paiements, **Solde dû**, Planification des paiements (paiements partiels), Ajouter une photo, Info sur le paiement, Remarques, Signature tactile, bouton « Marquer comme payée »
-- **Aperçu** : la facture PDF (filigrane, zébrures, couleur au choix) avec bouton plein écran / impression
+- **Aperçu** : la facture PDF (logo, filigrane, zébrures, couleur au choix) avec bouton plein écran / impression
 - **Historique** : chaque enregistrement, envoi, paiement est journalisé
 - Bouton flottant **Envoyer** : Email, Texto ou PDF
 
@@ -23,7 +23,20 @@ Onglets **Modifier / Aperçu / Historique** comme l'app de référence :
 
 - **Clients / Articles / Dépenses** : listes avec bouton « + » flottant et formulaires en feuille du bas
 - **Rapports** : facturé / payé / impayé par année, par mois, par client, par article
-- **Réglages** : infos d'entreprise, logo, taxe, préfixes de numérotation, couleur du PDF, textes par défaut
+- **Réglages** : infos d'entreprise, logo, filigrane, taxe, préfixes de numérotation, couleur du PDF, textes par défaut
+
+## Personnalisation : logo et filigrane
+
+Dans **Plus → Réglages** :
+
+- **Logo compagnie** : n'importe quelle image (PNG, JPG, SVG). Elle est automatiquement réduite à 600 px avant d'être enregistrée, pour ne pas remplir la mémoire du navigateur. Case à cocher pour l'afficher ou non en haut de la facture.
+- **Filigrane** : le motif pâle imprimé derrière chaque facture et chaque devis.
+  - **Logo** — le logo de la compagnie en filigrane (si aucun logo n'est chargé, le nom de la compagnie est utilisé)
+  - **Texte** — le nom de la compagnie ou un texte libre (« PAYÉ », « BROUILLON », …)
+  - **Aucun** — aucun filigrane
+  - Curseurs **Opacité**, **Taille** et **Rotation**, avec aperçu en direct
+
+Le filigrane est répété sur chaque page à l'impression.
 
 ## Commandes
 

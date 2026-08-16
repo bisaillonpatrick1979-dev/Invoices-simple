@@ -4,7 +4,7 @@ import {
   FileText, ClipboardList, Calculator, CreditCard, MoreHorizontal,
   Users, Package, ReceiptText, BarChart3, Settings as SettingsIcon, X
 } from 'lucide-react'
-import { load, save, emptySettings, migrateOldData, newDocument } from './store.js'
+import { load, save, emptySettings, mergeSettings, migrateOldData, newDocument } from './store.js'
 import { DocumentList } from './lists.jsx'
 import { DocumentEditor } from './editor.jsx'
 import { ClientsScreen, ItemsScreen, ExpensesScreen } from './catalog.jsx'
@@ -32,7 +32,7 @@ function App() {
   const [migrated] = useState(() => migrateOldData())
   const [tab, setTab] = useState('factures')
   const [plusOpen, setPlusOpen] = useState(false)
-  const [settings, setSettings] = useState(() => migrated?.settings || load('is_settings', emptySettings))
+  const [settings, setSettings] = useState(() => mergeSettings(migrated?.settings || load('is_settings', emptySettings)))
   const [clients, setClients] = useState(() => migrated?.clients || load('is_clients', []))
   const [items, setItems] = useState(() => load('is_items', []))
   const [expenses, setExpenses] = useState(() => load('is_expenses', []))
