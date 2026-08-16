@@ -68,7 +68,33 @@ Le champ **unité** est libre, avec des suggestions courantes (ea, h, pi², pi l
 
 ## Assistant IA
 
-**Plus → Assistant IA.** Tu racontes ce que tu as fait, il monte la facture. Tu lui envoies la photo d'une liste de travaux, il la lit et remplit la facture ou le catalogue. Tu lui demandes tes chiffres, il répond.
+**Plus → Assistant IA.** Tu racontes ce que tu as fait — à voix haute ou au clavier — et il monte la facture. Tu lui envoies la photo d'une liste de travaux, il la lit et remplit la facture ou le catalogue. Tu lui demandes tes chiffres, il répond.
+
+### Lui parler
+
+- **Micro** (à droite du champ) : appuie, parle, appuie de nouveau pour arrêter. Le texte se met dans le champ, tu le relis, tu envoies. Ce que tu avais déjà tapé est gardé, la dictée s'ajoute à la suite.
+- **Mains libres** (l'icône casque, en haut à droite) : le micro reste ouvert. Tu parles, et **deux secondes de silence suffisent pour que ça parte tout seul**. La réponse est lue à voix haute, puis l'écoute repart. De quoi facturer les mains pleines, sans toucher au téléphone.
+
+La transcription se fait **dans le navigateur** : ton micro n'est jamais envoyé au fournisseur d'IA, seul le texte transcrit part. Ça demande Chrome, Edge ou Safari — sur un navigateur qui ne sait pas transcrire (Firefox), le bouton micro n'apparaît pas et le clavier prend le relais.
+
+La dictée sur un chantier est ce qu'elle est : l'assistant sait que « deux cent cinquante pieds carrés » veut dire 250 pi², que « piasses » parle d'argent, et qu'un nom de client mal transcrit ressemble sûrement à un client déjà enregistré.
+
+### Il suit la conversation
+
+Les derniers échanges repartent au modèle à chaque message : tu peux corriger sans tout redire.
+
+> — J'ai posé 250 pi² de panneaux à 3 $ chez Marc Tremblay
+> — *facture INVOICE0012 préparée, 750 $*
+> — Ajoute 4 heures de main-d'œuvre
+> — *même facture, 2 lignes, 1 090 $*
+
+Une correction **complète la facture montée juste avant** au lieu d'en créer une deuxième. Le numéro, la date et le client sont gardés ; seules les lignes changent.
+
+### La photo
+
+Deux boutons à gauche du champ : l'**appareil photo** (ouvre la caméra directement sur un téléphone) et l'**image** (photo, capture d'écran, plusieurs à la fois). L'image est réduite à 1400 px avant l'envoi, assez pour rester lisible par le modèle.
+
+Il lit chaque ligne de travail, sa quantité et son prix. Un prix illisible est repris du catalogue ; si rien ne correspond, la ligne sort à 0 $ et il te le dit, plutôt que d'inventer un montant.
 
 ### Brancher un fournisseur
 

@@ -68,7 +68,7 @@ async function readResponse(res) {
 
 const trimBase = (url, fallback) => String(url || fallback).replace(/\/+$/, '')
 
-async function callAnthropic(cfg, { system, text, images }) {
+async function callAnthropic(cfg, { system, text, images, history }) {
   const content = [
     ...images.map(i => ({ type: 'image', source: { type: 'base64', media_type: i.mediaType, data: i.data } })),
     { type: 'text', text }
@@ -86,7 +86,10 @@ async function callAnthropic(cfg, { system, text, images }) {
       model: cfg.model,
       max_tokens: 8192,
       system,
-      messages: [{ role: 'user', content }]
+      messages: [
+        ...history.map(h => ({ role: h.role, content: h.text })),
+        { role: 'user', content }
+      ]
     })
   })
   const json = await readResponse(res)
@@ -96,7 +99,7 @@ async function callAnthropic(cfg, { system, text, images }) {
 // OpenAI et tous les fournisseurs qui copient son format (DeepSeek, Qwen, Groq,
 // OpenRouter, serveurs locaux…). max_tokens est volontairement omis : les
 // modèles récents ont renommé ce champ et le laisser casserait l'appel.
-async function callOpenAiCompatible(cfg, { system, text, images }, fallbackBase) {
+async function callOpenAiCompatible(cfg, { system, text, images, history }, fallbackBase) {
   const content = [
     { type: 'text', text },
     ...images.map(i => ({ type: 'image_url', image_url: { url: i.url } }))
@@ -108,6 +111,7 @@ async function callOpenAiCompatible(cfg, { system, text, images }, fallbackBase)
       model: cfg.model,
       messages: [
         { role: 'system', content: system },
+        ...history.map(h => ({ role: h.role, content: h.text })),
         { role: 'user', content: images.length ? content : text }
       ]
     })
@@ -116,7 +120,7 @@ async function callOpenAiCompatible(cfg, { system, text, images }, fallbackBase)
   return json.choices?.[0]?.message?.content || ''
 }
 
-async function callGemini(cfg, { system, text, images }) {
+async function callGemini(cfg, { system, text, images, history }) {
   const parts = [
     { text },
     ...images.map(i => ({ inline_data: { mime_type: i.mediaType, data: i.data } }))
@@ -127,7 +131,11 @@ async function callGemini(cfg, { system, text, images }) {
     headers: { 'content-type': 'application/json', 'x-goog-api-key': cfg.apiKey },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: 'user', parts }]
+      contents: [
+        // Gemini appelle « model » ce que les autres appellent « assistant »
+        ...history.map(h => ({ role: h.role === 'assistant' ? 'model' : 'user', parts: [{ text: h.text }] })),
+        { role: 'user', parts }
+      ]
     })
   })
   const json = await readResponse(res)
@@ -137,7 +145,12 @@ async function callGemini(cfg, { system, text, images }) {
 export function askAi(cfg, payload) {
   if (!cfg?.apiKey?.trim()) return Promise.reject(new Error("Aucune clé API n'est enregistrée (Réglages → Assistant IA)."))
   if (!cfg?.model?.trim()) return Promise.reject(new Error('Aucun modèle choisi (Réglages → Assistant IA).'))
-  const input = { system: payload.system, text: payload.text, images: payload.images || [] }
+  const input = {
+    system: payload.system,
+    text: payload.text,
+    images: payload.images || [],
+    history: payload.history || []
+  }
   if (cfg.provider === 'anthropic') return callAnthropic(cfg, input)
   if (cfg.provider === 'gemini') return callGemini(cfg, input)
   if (cfg.provider === 'openai') return callOpenAiCompatible(cfg, input, 'https://api.openai.com/v1')
@@ -181,7 +194,19 @@ const factsBlock = f => `Chiffres réels (déjà calculés, à reprendre tels qu
 - Depuis le début : ${f.all.nb} facture(s), facturé ${money(f.all.facture)}, encaissé ${money(f.all.encaisse)}, reste dû ${money(f.all.du)}
 - Factures non payées en ce moment : ${f.unpaid}`
 
-export function buildSystemPrompt({ settings, docs, expenses, clients, items }) {
+// La facture en cours dans la conversation : sans ça, « ajoute deux heures »
+// ferait une deuxième facture au lieu de compléter la première.
+const draftBlock = draft => {
+  if (!draft) return "Aucune facture n'a encore été montée dans cette conversation."
+  const lines = draft.lines
+    .map(l => `- ${l.description} | ${l.qty} ${l.unit || 'ea'} × ${Number(l.rate || 0)} $${l.taxable === false ? ' | non taxable' : ''}`)
+    .join('\n')
+  return `Facture montée à l'instant dans cette conversation : ${draft.number}${draft.client?.name ? ` pour ${draft.client.name}` : ''}
+${lines || '(aucune ligne)'}
+Si la personne corrige ou complète CETTE facture-là, renvoie "action":"invoice" avec "update":true et la liste COMPLÈTE des lignes (celles d'avant plus les nouvelles, ou corrigées). Sans "update":true, une deuxième facture serait créée.`
+}
+
+export function buildSystemPrompt({ settings, docs, expenses, clients, items, draft }) {
   const b = settings.business
   const facts = businessFacts(docs, expenses)
   const catalog = items.slice(0, 60)
@@ -202,10 +227,12 @@ ${catalog || '(catalogue vide)'}
 Clients enregistrés :
 ${clientList || '(aucun client enregistré)'}
 
+${draftBlock(draft)}
+
 Tu réponds UNIQUEMENT avec un objet JSON, sans texte autour et sans bloc de code. Formes possibles :
 
 1) Créer une facture (l'utilisateur décrit un travail fait, ou envoie une photo/capture d'une liste de travaux) :
-{"action":"invoice","reply":"phrase courte pour l'utilisateur","client":{"name":"","address":"","city":"","phone":"","email":""},"lines":[{"description":"","qty":1,"unit":"ea","rate":0,"taxable":true}],"notes":""}
+{"action":"invoice","reply":"phrase courte pour l'utilisateur","client":{"name":"","address":"","city":"","phone":"","email":""},"lines":[{"description":"","qty":1,"unit":"ea","rate":0,"taxable":true}],"notes":"","update":false}
 
 2) Ajouter des prix au catalogue (l'utilisateur envoie une liste de prix) :
 {"action":"items","reply":"phrase courte","items":[{"description":"","unit":"pi²","rate":0,"taxable":true}]}
@@ -216,9 +243,12 @@ Tu réponds UNIQUEMENT avec un objet JSON, sans texte autour et sans bloc de cod
 Règles :
 - Reprends les prix du catalogue quand la description correspond, au lieu d'en inventer.
 - Unités courantes : ea, h, pi², pi lin., verge², jour, lot, km.
+- Le message arrive souvent d'une dictée vocale, sur un chantier : la ponctuation manque, les nombres sont écrits en toutes lettres (« deux cent cinquante pieds carrés » = qty 250, unit pi²), « piasses » et « dollars » veulent dire le prix, et un nom de client peut être mal transcrit — reprends celui de la liste des clients quand ça se ressemble. Ne réclame pas une reformulation pour une faute de transcription : garde le sens.
+- Les photos et captures d'écran sont à lire au complet : chaque ligne de travail, sa quantité et son prix s'il y est. Un prix illisible ou absent se prend au catalogue ; si rien ne correspond, mets rate 0 et dis-le dans "reply" au lieu d'inventer un montant.
 - Ne calcule jamais un sous-total, une taxe ou un total : l'application s'en charge. Mets seulement qty, unit et rate par ligne.
 - Pour les questions d'argent, reprends exactement les chiffres réels ci-dessus. Si un chiffre demandé n'y est pas, dis-le au lieu de l'estimer.
-- Si la demande est ambiguë, utilise "answer" pour poser ta question au lieu de deviner.`
+- Si la demande est ambiguë, utilise "answer" pour poser ta question au lieu de deviner.
+- "reply" peut être lu à voix haute (mains libres) : une ou deux phrases parlées, sans puces, sans tableau et sans symboles à épeler.`
 }
 
 // Le modèle glisse souvent son JSON dans un bloc de code ou l'entoure de texte.
