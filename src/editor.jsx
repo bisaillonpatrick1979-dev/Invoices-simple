@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft, MoreVertical, ChevronRight, Send, Paperclip, Trash2,
-  Mail, MessageSquare, Printer, Clock, X, Maximize2, PenLine, Eye
+  Mail, MessageSquare, Printer, Clock, X, Maximize2, PenLine, Eye, MapPin
 } from 'lucide-react'
 import {
-  calcTotals, docStatus, fmtDate, lineTotal, money, newLine, suggestItems,
-  uid, today, emptyClient, withEvent, UNITS
+  buildEmailBody, buildSmsBody, calcTotals, docStatus, fmtDate, lineTotal, money,
+  newLine, suggestItems, uid, today, emptyClient, withEvent, UNITS
 } from './store.js'
 import { AppBar } from './lists.jsx'
 import { InvoicePaper } from './paper.jsx'
@@ -52,38 +52,12 @@ function Row({ children, onClick, chevron, bold, className = '' }) {
   </Tag>
 }
 
-function buildEmailBody(settings, doc, totals) {
-  const b = settings.business
-  const kind = doc.docType === 'invoice' ? 'facture' : 'devis'
-  const lineText = doc.lines
-    .filter(l => l.description || l.qty || l.rate)
-    .map(l => `- ${l.description || 'Article'} | ${l.qty || 0} ${l.unit || ''} x ${money(l.rate)} = ${money(lineTotal(l))}`)
-    .join('\n')
-  return (
-`Bonjour ${doc.client.name || ''},
-
-Voici votre ${kind} ${doc.number}.
-
-${lineText || 'Détails à venir.'}
-
-Sous-total : ${money(totals.subtotal)}
-Remise : -${money(totals.discount)}
-${settings.taxLabel} (${doc.taxRate}%) : ${money(totals.tax)}
-Total : ${money(totals.total)}
-${totals.paid > 0 ? `Paiements : ${money(totals.paid)}\nSolde dû : ${money(totals.balance)}\n` : ''}
-Note : pour joindre le PDF, cliquez d'abord sur PDF / Save as PDF, puis attachez le fichier dans votre email.
-
-Merci,
-${b.name}
-${b.phone || ''}
-${b.email || ''}`)
-}
-
 export function DocumentEditor({ doc, settings, clients, items, onChange, onSave, onDelete, onConvert, onSaveClient, onSaveItem, onOpenSettings, onClose }) {
   const [view, setView] = useState('edit')
   const [sendOpen, setSendOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [clientOpen, setClientOpen] = useState(false)
+  const [siteOpen, setSiteOpen] = useState(false)
   const [payOpen, setPayOpen] = useState(false)
   const [sigOpen, setSigOpen] = useState(false)
   const totals = calcTotals(doc)
@@ -111,7 +85,7 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
   const sendSms = () => {
     if (!doc.client.phone?.trim()) return alert('Ajoute un numéro de téléphone au client avant d’envoyer par texto.')
     const saved = persist(withEvent({ ...doc, status: 'sent' }, 'Envoyée par texto'))
-    const body = encodeURIComponent(`Bonjour ${saved.client.name || ''}, votre ${isInvoice ? 'facture' : 'devis'} ${saved.number} de ${money(totals.total)} est prête. ${settings.business.name}`)
+    const body = encodeURIComponent(buildSmsBody(settings, saved, totals))
     window.location.href = `sms:${saved.client.phone}?&body=${body}`
     setSendOpen(false)
   }
@@ -240,6 +214,27 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
           <input placeholder="Adresse" value={doc.client.address} onChange={e => setClient({ address: e.target.value })}/>
           <input placeholder="Ville" value={doc.client.city} onChange={e => setClient({ city: e.target.value })}/>
           <button className="link-btn" onClick={saveClientToBook}>Sauvegarder ce client en mémoire</button>
+        </div>}
+      </div>
+
+      {/* Chantier : une facture par adresse de travaux */}
+      <div className="edit-card">
+        <Row onClick={() => setSiteOpen(o => !o)} chevron>
+          <span className="row-ico"><MapPin size={17}/></span>
+          <span><b>Chantier</b> <span className={doc.siteAddress ? '' : 'hint'}>{doc.siteAddress || 'Adresse des travaux'}</span></span>
+        </Row>
+        {siteOpen && <div className="row-detail">
+          <textarea
+            rows={2}
+            placeholder="123, rue Principale, Calgary, AB"
+            value={doc.siteAddress || ''}
+            onChange={e => set({ siteAddress: e.target.value })}
+          />
+          {doc.client.address && doc.client.address !== doc.siteAddress && <button
+            className="link-btn"
+            onClick={() => set({ siteAddress: [doc.client.address, doc.client.city].filter(Boolean).join(', ') })}
+          >Reprendre l'adresse du client</button>}
+          <p className="hint small-note">Imprimée sur la facture, pour que le client voie tout de suite quel chantier il paie.</p>
         </div>}
       </div>
 

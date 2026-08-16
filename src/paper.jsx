@@ -89,6 +89,13 @@ export function InvoicePaper({ settings, doc, totals }) {
       </div>
     </section>
 
+    {/* Une facture par chantier : le client doit voir tout de suite pour
+        quelle adresse il paie. */}
+    {doc.siteAddress && <section className="pdf-site">
+      <h3>Adresse des travaux</h3>
+      <p>{doc.siteAddress}</p>
+    </section>}
+
     <table className="pdf-lines">
       <thead>
         <tr><th>Description</th><th>Qté</th><th>Unité</th><th>Prix</th><th>Total</th></tr>

@@ -218,7 +218,9 @@ textarea { resize: vertical; }
   position: fixed;
   right: max(18px, calc(50vw - 430px + 18px));
   bottom: 92px;
-  z-index: 41;
+  /* le « + » passe devant la bulle de l'assistant : même empilées par
+     accident, le bouton d'ajout doit rester touchable */
+  z-index: 42;
   width: 58px; height: 58px;
   border-radius: 50%;
   background: var(--blue);
@@ -816,6 +818,23 @@ button.primary.wide { width: 100%; margin-top: 12px; }
 }
 .pdf-parties p { margin: 2px 0; font-size: 13.5px; white-space: pre-line; }
 
+/* Adresse du chantier : encadrée pour que le client repère du premier coup
+   d'œil quel chantier il paie. */
+.pdf-site {
+  margin: 0 0 18px;
+  padding: 9px 12px;
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.pdf-site h3 {
+  margin: 0 0 3px;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent);
+}
+.pdf-site p { margin: 0; font-size: 13.5px; white-space: pre-line; font-weight: 600; }
+
 .pdf-lines { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13.5px; }
 .pdf-lines th {
   /* translucide pour laisser voir le filigrane ; la 1re règle sert de repli
@@ -964,7 +983,108 @@ button.primary.wide { width: 100%; margin-top: 12px; }
 }
 .chat-row .primary { border-radius: 50%; padding: 12px; flex: none; }
 .chat-row .primary:disabled { opacity: .45; }
-.chat-row > .icon { flex: none; padding: 10px; cursor: pointer; }
+/* quatre boutons autour du champ : le rembourrage reste serré pour que le
+   texte garde de la place sur un écran de téléphone */
+.chat-row > .icon, .chat-row > label.icon { flex: none; padding: 8px; cursor: pointer; }
+
+/* icône en tête de rangée (chantier) */
+.row-ico { display: inline-flex; color: var(--blue); margin-right: 8px; vertical-align: -3px; }
+
+/* ===== Bulle de l'assistant, sur tous les écrans ===== */
+.ai-fab {
+  /* par défaut au-dessus de la bulle « + », qu'elle ne doit pas couvrir */
+  bottom: 160px;
+  z-index: 41;
+  width: 52px; height: 52px;
+  background: linear-gradient(140deg, #6c7cf0, #4353c9);
+  box-shadow: 0 6px 18px rgba(67, 83, 201, .38), 0 0 0 4px rgba(108, 124, 240, .13);
+}
+.ai-fab:hover { background: linear-gradient(140deg, #7b89f5, #3a49b8); }
+/* pendant que l'assistant travaille, la bulle respire */
+.ai-fab.busy { animation: ai-breathe 1.6s ease-in-out infinite; }
+@keyframes ai-breathe {
+  50% { box-shadow: 0 6px 18px rgba(67, 83, 201, .38), 0 0 0 12px rgba(108, 124, 240, 0); }
+}
+
+/* L'assistant s'ouvre par-dessus l'écran courant, barre du bas comprise :
+   c'est un panneau, on en sort par la flèche. */
+.assistant-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  background: var(--bg);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.assistant-overlay.hidden { display: none; }
+.assistant-overlay > .screen { max-width: 860px; margin: 0 auto; }
+/* plus de barre d'onglets dessous : le champ de saisie descend au bas */
+.assistant-overlay .chat-bar { bottom: env(safe-area-inset-bottom); }
+.assistant-overlay .chat-body { padding-bottom: 130px; }
+
+/* ===== Copie de sauvegarde ===== */
+.counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+.counts span {
+  background: #f4f5fd;
+  border: 1px solid #dfe3f8;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.counts b { color: var(--ink); }
+/* un <label> qui doit avoir l'air d'un bouton */
+.file-btn { cursor: pointer; margin-top: 8px; }
+
+/* ===== Nuage ===== */
+.cloud-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 12px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.link-btn.with-icon { display: inline-flex; align-items: center; gap: 7px; }
+
+/* ===== Dictée ===== */
+.chat-row .mic.on {
+  color: #fff;
+  background: var(--red);
+  border-radius: 50%;
+  animation: mic-pulse 1.4s ease-out infinite;
+}
+@keyframes mic-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(198, 40, 40, .45); }
+  70% { box-shadow: 0 0 0 11px rgba(198, 40, 40, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(198, 40, 40, 0); }
+}
+.mic-live {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.mic-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--red);
+  flex: none;
+  animation: mic-blink 1s steps(1, end) infinite;
+}
+@keyframes mic-blink { 50% { opacity: .2; } }
+/* mains libres actif, dans la barre du haut */
+.appbar .icon.light.on { background: rgba(255, 255, 255, .28); border-radius: 50%; }
 
 /* ===== Responsive ===== */
 @media (max-width: 640px) {
