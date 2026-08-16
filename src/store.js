@@ -50,6 +50,7 @@ export const emptySettings = {
   logo: '',
   logoOnPdf: true,
   watermark: { ...defaultWatermark },
+  ai: { provider: 'anthropic', apiKey: '', model: 'claude-opus-5', baseUrl: '' },
   taxLabel: 'Gst',
   taxRate: 5,
   taxDefault: true,
@@ -65,7 +66,8 @@ export const mergeSettings = stored => ({
   ...emptySettings,
   ...stored,
   business: { ...emptySettings.business, ...(stored?.business || {}) },
-  watermark: { ...defaultWatermark, ...(stored?.watermark || {}) }
+  watermark: { ...defaultWatermark, ...(stored?.watermark || {}) },
+  ai: { ...emptySettings.ai, ...(stored?.ai || {}) }
 })
 
 // Lit une image et la redimensionne : le localStorage est limité (~5 Mo),

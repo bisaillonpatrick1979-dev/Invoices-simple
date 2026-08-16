@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
-import { ArrowLeft, Eye } from 'lucide-react'
+import { ArrowLeft, Eye, Sparkles } from 'lucide-react'
 import { defaultWatermark, emptySettings, readImageFile, sampleDocument } from './store.js'
+import { AI_PROVIDERS, aiProvider, askAi } from './ai.js'
 import { AppBar } from './lists.jsx'
 import { PaperPreview, Watermark } from './paper.jsx'
 
@@ -26,6 +27,22 @@ export function SettingsScreen({ settings, setSettings, onBack }) {
   const wm = { ...defaultWatermark, ...(settings.watermark || {}) }
   const [logoError, setLogoError] = useState('')
   const [previewOpen, setPreviewOpen] = useState(false)
+  const ai = settings.ai || emptySettings.ai
+  const [aiTest, setAiTest] = useState(null)
+  const setAi = patch => setSettings({ ...settings, ai: { ...ai, ...patch } })
+
+  const pickProvider = id => {
+    const p = aiProvider(id)
+    setAiTest(null)
+    setAi({ provider: id, model: p.model, baseUrl: p.baseUrl || '' })
+  }
+
+  const testAi = () => {
+    setAiTest({ state: 'run', text: 'Appel en cours…' })
+    askAi(ai, { system: 'Réponds exactement: OK', text: 'Test de connexion.', images: [] })
+      .then(r => setAiTest({ state: 'ok', text: `Connexion réussie — le modèle a répondu « ${String(r).trim().slice(0, 60)} ».` }))
+      .catch(e => setAiTest({ state: 'err', text: e.message || 'Échec de la connexion.' }))
+  }
   const setBiz = patch => setSettings({ ...settings, business: { ...b, ...patch } })
   const setWm = patch => setSettings({ ...settings, watermark: { ...wm, ...patch } })
 
@@ -111,6 +128,30 @@ export function SettingsScreen({ settings, setSettings, onBack }) {
         <Eye size={18}/> Voir un aperçu de la facture
       </button>
       <p className="hint small-note centered">Ouvre une facture d'exemple avec tes réglages actuels.</p>
+
+      <div className="edit-card padded">
+        <h2 className="section-title"><Sparkles size={17}/> Assistant IA</h2>
+        <p className="hint small-note">Ta clé reste sur cet appareil et parle directement au fournisseur. N'utilise pas une clé partagée d'entreprise : quelqu'un qui a ton téléphone déverrouillé pourrait la lire.</p>
+
+        <Field label="Fournisseur">
+          <select value={ai.provider} onChange={e => pickProvider(e.target.value)}>
+            {AI_PROVIDERS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+          </select>
+        </Field>
+        <Field label={`Clé API — ${aiProvider(ai.provider).keyHint}`}>
+          <input type="password" autoComplete="off" placeholder="Colle ta clé ici" value={ai.apiKey} onChange={e => { setAiTest(null); setAi({ apiKey: e.target.value }) }}/>
+        </Field>
+        <Field label={`Modèle — ${aiProvider(ai.provider).modelHint}`}>
+          <input value={ai.model} onChange={e => { setAiTest(null); setAi({ model: e.target.value }) }}/>
+        </Field>
+        {ai.provider === 'compatible' && <Field label="Adresse de l'API">
+          <input value={ai.baseUrl} placeholder="https://api.deepseek.com/v1" onChange={e => { setAiTest(null); setAi({ baseUrl: e.target.value }) }}/>
+        </Field>}
+
+        <button className="outline-btn" disabled={!ai.apiKey.trim() || aiTest?.state === 'run'} onClick={testAi}>Tester la connexion</button>
+        {aiTest && <p className={aiTest.state === 'err' ? 'hint small-note ai-test err' : 'hint small-note ai-test'}>{aiTest.text}</p>}
+        {ai.apiKey && <button className="link-btn" onClick={() => { setAiTest(null); setAi({ apiKey: '' }) }}>Retirer la clé de cet appareil</button>}
+      </div>
 
       <div className="edit-card padded">
         <h2 className="section-title">Taxe & documents</h2>

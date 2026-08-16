@@ -66,6 +66,35 @@ Une description déjà connue est mise à jour plutôt que dupliquée (la casse 
 
 Le champ **unité** est libre, avec des suggestions courantes (ea, h, pi², pi lin., verge², jour, lot, km), et sort dans la colonne « Unité » du PDF.
 
+## Assistant IA
+
+**Plus → Assistant IA.** Tu racontes ce que tu as fait, il monte la facture. Tu lui envoies la photo d'une liste de travaux, il la lit et remplit la facture ou le catalogue. Tu lui demandes tes chiffres, il répond.
+
+### Brancher un fournisseur
+
+Dans **Réglages → Assistant IA** : choisis le fournisseur, colle ta clé API, ajuste le nom du modèle au besoin, puis **Teste la connexion**.
+
+| Fournisseur | Où prendre la clé | Modèle par défaut |
+|---|---|---|
+| Anthropic (Claude) | console.anthropic.com | `claude-opus-5` |
+| OpenAI (GPT) | platform.openai.com | `gpt-4o` |
+| Google (Gemini) | aistudio.google.com | `gemini-2.5-flash` |
+| Autre (DeepSeek, Qwen, Groq, OpenRouter, serveur local) | selon le fournisseur | `deepseek-chat` |
+
+Le dernier choix accepte n'importe quelle API au format OpenAI : il suffit d'entrer son adresse.
+
+### Où va la clé
+
+**L'app n'a aucun serveur.** La clé est enregistrée sur l'appareil et le navigateur appelle directement le fournisseur. Personne d'autre ne la voit — mais quiconque a l'appareil déverrouillé peut la lire. N'y mets pas une clé d'entreprise partagée. Le bouton *Retirer la clé de cet appareil* l'efface.
+
+### Les chiffres ne sont jamais calculés par l'IA
+
+Revenus, encaissements, soldes dus et dépenses sont calculés en JavaScript, puis transmis au modèle déjà faits. Le modèle les met en phrase, il ne les additionne pas — un modèle qui compte des montants se trompe.
+
+### Ce qu'il ne fait pas tout seul
+
+Il **prépare** la facture et l'ouvre pour révision ; il ne l'envoie pas au client. Envoyer une facture est irréversible et se fait en une touche depuis l'éditeur, une fois que tu as vérifié.
+
 ## Bulle « + » déplaçable
 
 Le bouton rond « + » peut être glissé où on veut à l'écran : un appui ajoute, un glissement déplace. La position est retenue d'un écran à l'autre et d'une session à l'autre, et la bulle ne peut pas sortir de l'écran.

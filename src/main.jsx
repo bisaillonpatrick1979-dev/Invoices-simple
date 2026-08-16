@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
   FileText, ClipboardList, Calculator, CreditCard, MoreHorizontal,
-  Users, Package, ReceiptText, BarChart3, Settings as SettingsIcon, X
+  Users, Package, ReceiptText, BarChart3, Settings as SettingsIcon, X, Sparkles
 } from 'lucide-react'
 import { load, save, emptySettings, mergeItemsFromLines, mergeSettings, migrateOldData, newDocument } from './store.js'
 import { DocumentList } from './lists.jsx'
@@ -10,6 +10,7 @@ import { DocumentEditor } from './editor.jsx'
 import { ClientsScreen, ItemsScreen, ExpensesScreen } from './catalog.jsx'
 import { ComptaScreen, RapportsScreen, PaiementsScreen } from './compta.jsx'
 import { SettingsScreen } from './settings.jsx'
+import { AssistantScreen } from './assistant.jsx'
 import './styles.css'
 
 const NAV = [
@@ -21,6 +22,7 @@ const NAV = [
 ]
 
 const PLUS_ITEMS = [
+  { id: 'assistant', label: 'Assistant IA', icon: Sparkles },
   { id: 'clients', label: 'Clients', icon: Users },
   { id: 'articles', label: 'Articles', icon: Package },
   { id: 'depenses', label: 'Dépenses', icon: ReceiptText },
@@ -77,6 +79,12 @@ function App() {
       : [...list, item])
   }
 
+  // L'assistant peut proposer plusieurs prix d'un coup
+  const addItems = list => {
+    setItems(cur => mergeItemsFromLines(cur, list))
+    return list.length
+  }
+
   const openTab = id => {
     setEditing(null)
     setPlusOpen(false)
@@ -113,12 +121,24 @@ function App() {
         {tab === 'articles' && <ItemsScreen items={items} setItems={setItems} onBack={() => setTab('factures')}/>}
         {tab === 'depenses' && <ExpensesScreen expenses={expenses} setExpenses={setExpenses} onBack={() => setTab('factures')}/>}
         {tab === 'rapports' && <RapportsScreen docs={docs} onBack={() => setTab('factures')}/>}
+        {tab === 'assistant' && <AssistantScreen
+          settings={settings}
+          docs={docs}
+          expenses={expenses}
+          clients={clients}
+          items={items}
+          onCreateDoc={upsertDoc}
+          onSaveItems={addItems}
+          onOpenDoc={doc => { setTab('factures'); setEditing(doc) }}
+          onOpenSettings={() => setTab('settings')}
+          onBack={() => setTab('factures')}
+        />}
         {tab === 'settings' && <SettingsScreen settings={settings} setSettings={setSettings} onBack={() => setTab('factures')}/>}
       </>
 
   const activeNav = editing
     ? (editing.docType === 'invoice' ? 'factures' : 'devis')
-    : (['clients', 'articles', 'depenses', 'rapports', 'settings'].includes(tab) ? 'plus' : tab)
+    : (['assistant', 'clients', 'articles', 'depenses', 'rapports', 'settings'].includes(tab) ? 'plus' : tab)
 
   return (
     <div className="app">
