@@ -229,6 +229,8 @@ textarea { resize: vertical; }
   place-items: center;
 }
 .fab:hover { background: var(--blue-dark); }
+/* déplaçable : le glissement ne doit pas faire défiler la page */
+.fab { touch-action: none; }
 
 /* Bouton flottant Envoyer */
 .send-fab {
@@ -259,6 +261,10 @@ textarea { resize: vertical; }
   box-shadow: 0 1px 2px rgba(15, 23, 42, .06);
 }
 .edit-card.padded { padding: 16px; }
+/* la liste de suggestions doit pouvoir dépasser la carte sans être rognée */
+.edit-card.lines { overflow: visible; }
+.edit-card.lines > :first-child { border-radius: var(--radius) var(--radius) 0 0; }
+.edit-card.lines > :last-child { border-radius: 0 0 var(--radius) var(--radius); }
 .edit-row {
   display: flex;
   align-items: center;
@@ -313,6 +319,41 @@ textarea.edit-row.ghost.notes { min-height: 84px; }
 .line-block { border-bottom: 1px solid #f0f1f3; padding: 12px 16px; }
 .line-main { display: flex; align-items: center; gap: 10px; }
 .line-main > input { flex: 1; font-size: 15.5px; }
+.line-main > .autocomplete { flex: 1; min-width: 0; }
+
+/* Rappel des descriptions déjà facturées */
+.autocomplete { position: relative; }
+.autocomplete > input { width: 100%; font-size: 15.5px; }
+.suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .18);
+  overflow: hidden;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.suggestions button {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid #f0f1f3;
+  text-align: left;
+  padding: 11px 13px;
+  font-size: 14.5px;
+}
+.suggestions button:last-child { border-bottom: 0; }
+.suggestions button:hover { background: #f4f5fd; }
+.suggestions b { color: var(--blue); font-size: 13px; white-space: nowrap; }
 .line-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .line-calc { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 13.5px; }
 .line-calc input {
@@ -670,6 +711,27 @@ button.primary.wide { width: 100%; margin-top: 12px; }
 
 /* ===== Aperçu / papier PDF ===== */
 .preview-body { padding: 12px 10px 150px; display: flex; flex-direction: column; gap: 12px; }
+
+/* Barre d'actions de l'aperçu : imprimer et envoyer côte à côte,
+   au-dessus de la barre d'onglets, sans rien qui se chevauche */
+.action-bar {
+  position: fixed;
+  left: 0; right: 0;
+  bottom: calc(66px + env(safe-area-inset-bottom));
+  z-index: 41;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 10px 12px;
+  background: #fff;
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -4px 16px rgba(15, 23, 42, .08);
+}
+.action-bar .outline-btn { flex: 1; padding: 12px 8px; font-size: 15px; }
+.action-bar .primary { flex: 0 0 auto; padding: 13px 20px; }
 .pdf-frame { position: relative; }
 .expand-btn {
   position: absolute;

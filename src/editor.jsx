@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft, MoreVertical, ChevronRight, Send, Paperclip, Trash2,
-  Mail, MessageSquare, Printer, Clock, X, Maximize2, PenLine, Eye, BookmarkPlus
+  Mail, MessageSquare, Printer, Clock, X, Maximize2, PenLine, Eye
 } from 'lucide-react'
 import {
-  calcTotals, docStatus, fmtDate, itemFromLine, lineTotal, money, newLine,
+  calcTotals, docStatus, fmtDate, lineTotal, money, newLine, suggestItems,
   uid, today, emptyClient, withEvent, UNITS
 } from './store.js'
 import { AppBar } from './lists.jsx'
@@ -15,6 +15,34 @@ const EDITOR_TABS = [
   { id: 'preview', label: 'Aperçu' },
   { id: 'history', label: 'Historique' }
 ]
+
+// Champ description avec rappel de tout ce qui a déjà été facturé :
+// on tape les premières lettres, on choisit, prix et unité suivent.
+function DescriptionInput({ line, catalog, onType, onPick }) {
+  const [open, setOpen] = useState(false)
+  const matches = open ? suggestItems(catalog, line.description) : []
+  return <div className="autocomplete">
+    <input
+      className="ghost"
+      placeholder="Description"
+      value={line.description}
+      onChange={e => { onType(e.target.value); setOpen(true) }}
+      onFocus={() => setOpen(true)}
+      onBlur={() => setTimeout(() => setOpen(false), 160)}
+    />
+    {matches.length > 0 && <div className="suggestions">
+      {matches.map(it => <button
+        key={it.id}
+        type="button"
+        onMouseDown={e => e.preventDefault()}
+        onClick={() => { onPick(it); setOpen(false) }}
+      >
+        <span>{it.description}</span>
+        <b>{money(it.rate)} / {it.unit}</b>
+      </button>)}
+    </div>}
+  </div>
+}
 
 function Row({ children, onClick, chevron, bold, className = '' }) {
   const Tag = onClick ? 'button' : 'div'
@@ -151,16 +179,8 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
     if (it) setLine(lineId, { description: it.description, unit: it.unit, rate: it.rate, taxable: it.taxable !== false })
   }
 
-  // Garder un prix pour les prochaines factures
-  const saveLineToCatalog = line => {
-    const result = itemFromLine(line, items)
-    if (!result) return alert("Écris d'abord une description sur la ligne.")
-    const { item, existing } = result
-    onSaveItem(item)
-    alert(existing
-      ? `« ${item.description} » mis à jour dans le catalogue : ${money(item.rate)} / ${item.unit}.`
-      : `« ${item.description} » ajouté au catalogue : ${money(item.rate)} / ${item.unit}.\n\nTu le retrouveras dans Plus → Articles et dans la liste déroulante des prochaines factures.`)
-  }
+  const pickItem = (lineId, it) =>
+    setLine(lineId, { description: it.description, unit: it.unit, rate: it.rate, taxable: it.taxable !== false })
 
   const addPhotos = e => {
     const files = Array.from(e.target.files || [])
@@ -224,10 +244,15 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
       </div>
 
       {/* Articles */}
-      <div className="edit-card">
+      <div className="edit-card lines">
         {doc.lines.map(l => <div className="line-block" key={l.id}>
           <div className="line-main">
-            <input className="ghost" placeholder="Description" value={l.description} onChange={e => setLine(l.id, { description: e.target.value })}/>
+            <DescriptionInput
+              line={l}
+              catalog={catalog}
+              onType={v => setLine(l.id, { description: v })}
+              onPick={it => pickItem(l.id, it)}
+            />
             <div className="line-right">
               <span className="line-calc">
                 <input type="number" value={l.qty} onChange={e => setLine(l.id, { qty: e.target.value })}/>
@@ -250,7 +275,6 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
               onChange={e => setLine(l.id, { unit: e.target.value })}
             />
             <label className="check small"><input type="checkbox" checked={l.taxable !== false} onChange={e => setLine(l.id, { taxable: e.target.checked })}/> {settings.taxLabel}</label>
-            <button className="icon" title="Enregistrer ce prix dans le catalogue" onClick={() => saveLineToCatalog(l)}><BookmarkPlus size={17}/></button>
             <button className="icon danger" onClick={() => set({ lines: doc.lines.filter(x => x.id !== l.id) })}><Trash2 size={16}/></button>
           </div>
         </div>)}
@@ -351,7 +375,6 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
         <InvoicePaper settings={settings} doc={doc} totals={totals}/>
         <button className="expand-btn no-print" onClick={printPdf} title="Plein écran / PDF"><Maximize2 size={20}/></button>
       </div>
-      <button className="outline-btn no-print" onClick={printPdf}>Télécharger / imprimer le PDF</button>
     </div>}
 
     {view === 'history' && <div className="editor-body">
@@ -379,7 +402,14 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
           <button onClick={printPdf}><Printer size={19}/> PDF</button>
         </div>
       </div>}
-      <button className="send-fab no-print" onClick={() => setSendOpen(o => !o)}><Send size={19}/> Envoyer</button>
+      {/* sur l'aperçu, les deux actions sont côte à côte : plus de bouton
+          flottant par-dessus le bouton d'impression */}
+      {view === 'preview'
+        ? <div className="action-bar no-print">
+            <button className="outline-btn with-icon" onClick={printPdf}><Printer size={18}/> Imprimer / PDF</button>
+            <button className="primary" onClick={() => setSendOpen(o => !o)}><Send size={18}/> Envoyer</button>
+          </div>
+        : <button className="send-fab no-print" onClick={() => setSendOpen(o => !o)}><Send size={19}/> Envoyer</button>}
     </>}
   </section>
 }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { ArrowLeft, Plus, Trash2, Pencil, Search, X } from 'lucide-react'
 import { emptyClient, emptyItem, emptyExpense, EXPENSE_CATEGORIES, fmtDate, money, today, uid, UNITS } from './store.js'
-import { AppBar } from './lists.jsx'
+import { AppBar, Fab } from './lists.jsx'
 
 function FormSheet({ title, onClose, onSubmit, submitLabel, children }) {
   return <div className="sheet-backdrop no-print" onClick={onClose}>
@@ -50,7 +50,7 @@ export function ClientsScreen({ clients, setClients, onBack }) {
         </div>
       </div>)}
     </div>
-    <button className="fab no-print" onClick={() => setDraft({ ...emptyClient })}><Plus size={28}/></button>
+    <Fab onClick={() => setDraft({ ...emptyClient })} title="Nouveau client"/>
     {draft && <FormSheet title={draft.id ? 'Modifier client' : 'Nouveau client'} onClose={() => setDraft(null)} onSubmit={submit} submitLabel="Enregistrer">
       <input placeholder="Nom" value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })}/>
       <div className="pair">
@@ -103,7 +103,7 @@ export function ItemsScreen({ items, setItems, onBack }) {
         </div>
       </div>)}
     </div>
-    <button className="fab no-print" onClick={() => setDraft({ ...emptyItem })}><Plus size={28}/></button>
+    <Fab onClick={() => setDraft({ ...emptyItem })} title="Nouvel article"/>
     {draft && <FormSheet title={draft.id ? 'Modifier article' : 'Nouvel article'} onClose={() => setDraft(null)} onSubmit={submit} submitLabel="Enregistrer">
       <input placeholder="Description (ex. : Poser des panneaux)" value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })}/>
       <div className="pair">
@@ -145,7 +145,7 @@ export function ExpensesScreen({ expenses, setExpenses, onBack }) {
         </div>
       </div>)}
     </div>
-    <button className="fab no-print" onClick={() => setDraft({ ...emptyExpense, date: today() })}><Plus size={28}/></button>
+    <Fab onClick={() => setDraft({ ...emptyExpense, date: today() })} title="Nouvelle dépense"/>
     {draft && <FormSheet title={draft.id ? 'Modifier dépense' : 'Nouvelle dépense'} onClose={() => setDraft(null)} onSubmit={submit} submitLabel="Enregistrer">
       <input placeholder="Description" value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })}/>
       <div className="pair">

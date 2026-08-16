@@ -46,12 +46,29 @@ Dans l'éditeur, le bouton **Envoyer** propose **Aperçu PDF** en premier : de q
 
 ## Catalogue d'articles (liste de prix)
 
-**Plus → Articles** garde les travaux et matériaux qui reviennent, avec leur prix à l'unité — « Poser des panneaux » à 3,00 $ / pi², par exemple. Deux façons de le remplir :
+**Tout ce qui est facturé est mémorisé automatiquement.** Dès qu'une facture est enregistrée, chaque ligne (description, prix, unité, taxable) entre au catalogue. Rien à toucher.
 
-- **Depuis une facture** : tape la description, le prix et l'unité sur la ligne, puis touche le bouton **signet** à côté. Le prix est gardé pour les prochaines fois. Réenregistrer une description déjà connue met le prix à jour au lieu de créer un doublon (la casse n'a pas d'importance).
-- **Depuis l'écran Articles** : bouton « + », avec recherche dans la liste quand elle s'allonge.
+Ensuite, en tapant les premières lettres d'une description sur une facture, un menu déroulant propose ce qui a déjà été facturé, avec son prix :
 
-Sur chaque ligne de facture, la liste déroulante **Article du catalogue** remplit d'un coup la description, le prix, l'unité et le caractère taxable ; il ne reste qu'à entrer la quantité. Le champ **unité** est libre, avec des suggestions courantes (ea, h, pi², pi lin., verge², jour, lot, km), et l'unité sort dans la colonne « Unité » du PDF.
+```
+pos
+┌──────────────────────────────────────────┐
+│ Poser des panneaux        3,00 $ / pi²   │
+│ Poser du déclin de vinyle 4,50 $ / pi²   │
+└──────────────────────────────────────────┘
+```
+
+Une touche sur la suggestion remplit la description, le prix, l'unité et le caractère taxable ; il ne reste que la quantité à entrer.
+
+Une description déjà connue est mise à jour plutôt que dupliquée (la casse n'a pas d'importance), et une description de moins de 3 lettres n'est pas retenue, pour ne pas mémoriser un mot à moitié tapé.
+
+**Plus → Articles** montre toute la liste : recherche, tri alphabétique, modification du prix, suppression de ce qui ne sert pas. Le bouton « + » permet aussi d'ajouter un prix à la main, sans passer par une facture.
+
+Le champ **unité** est libre, avec des suggestions courantes (ea, h, pi², pi lin., verge², jour, lot, km), et sort dans la colonne « Unité » du PDF.
+
+## Bulle « + » déplaçable
+
+Le bouton rond « + » peut être glissé où on veut à l'écran : un appui ajoute, un glissement déplace. La position est retenue d'un écran à l'autre et d'une session à l'autre, et la bulle ne peut pas sortir de l'écran.
 
 ## Commandes
 
