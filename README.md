@@ -134,11 +134,20 @@ Les derniers échanges repartent au modèle à chaque message : tu peux corriger
 
 Une correction **complète la facture montée juste avant** au lieu d'en créer une deuxième. Le numéro, la date et le client sont gardés ; seules les lignes changent.
 
-### La photo
+### Les photos et les fichiers
 
-Deux boutons à gauche du champ : l'**appareil photo** (ouvre la caméra directement sur un téléphone) et l'**image** (photo, capture d'écran, plusieurs à la fois). L'image est réduite à 1400 px avant l'envoi, assez pour rester lisible par le modèle.
+Deux boutons à gauche du champ :
+
+- l'**appareil photo** — ouvre la caméra directement sur un téléphone
+- le **trombone image** — photos, captures d'écran **et PDF**, plusieurs à la fois
+
+Les images sont réduites à 1400 px avant l'envoi, assez pour rester lisibles par le modèle. Les PDF partent tels quels, jusqu'à 12 Mo.
 
 Il lit chaque ligne de travail, sa quantité et son prix. Un prix illisible est repris du catalogue ; si rien ne correspond, la ligne sort à 0 $ et il te le dit, plutôt que d'inventer un montant.
+
+**Un PDF joint** — devis de fournisseur, bon de travail, soumission, facture reçue — sert à monter la facture : il en reprend les quantités et les descriptions, mais applique **tes** prix du catalogue quand la description correspond. Les prix du fournisseur sont les siens, pas les tiens. Si le PDF n'est pas une liste de travaux, il dit ce que c'est et demande quoi en faire.
+
+La lecture des PDF demande **Anthropic (Claude)** ou **Google (Gemini)** : le format de chat d'OpenAI ne transporte pas de fichier. Avec un autre fournisseur, l'assistant le dit au lieu de laisser partir un appel qui échouerait.
 
 ### Brancher un fournisseur
 

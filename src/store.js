@@ -100,6 +100,33 @@ export function readImageFile(file, maxSize = 600) {
   })
 }
 
+// Un PDF part tel quel, sans être redimensionné comme une image. La base64
+// gonfle le poids d'un tiers, et un appel trop gros est refusé par le
+// fournisseur : mieux vaut le dire avant de l'envoyer.
+export const MAX_FILE_MB = 12
+
+export function readDataFile(file) {
+  return new Promise((resolve, reject) => {
+    if (file.size > MAX_FILE_MB * 1024 * 1024) {
+      return reject(new Error(`« ${file.name} » est trop lourd (${Math.round(file.size / 1024 / 1024)} Mo). Maximum ${MAX_FILE_MB} Mo.`))
+    }
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error(`« ${file.name} » ne se laisse pas lire.`))
+    reader.onload = () => resolve({
+      id: uid(),
+      kind: 'file',
+      name: file.name,
+      size: file.size,
+      mediaType: file.type || 'application/pdf',
+      src: String(reader.result)
+    })
+    reader.readAsDataURL(file)
+  })
+}
+
+export const fileWeight = bytes =>
+  bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} Mo` : `${Math.max(1, Math.round(bytes / 1024))} ko`
+
 export const emptyClient = { id: '', name: '', phone: '', email: '', address: '', city: '', notes: '' }
 export const emptyItem = { id: '', description: '', unit: 'ea', rate: 0, taxable: true }
 export const emptyExpense = { id: '', date: '', description: '', category: 'Matériel', amount: 0 }

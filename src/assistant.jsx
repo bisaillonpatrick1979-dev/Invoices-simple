@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft, Send, ImagePlus, Camera, Mic, MicOff, X, Sparkles,
-  FileText, Package, Mail, Settings as SettingsIcon, Headphones
+  FileText, Package, Mail, Settings as SettingsIcon, Headphones, Paperclip
 } from 'lucide-react'
 import {
-  buildEmailBody, buildSmsBody, calcTotals, emptyClient, money, newDocument,
-  readImageFile, uid, withEvent
+  buildEmailBody, buildSmsBody, calcTotals, emptyClient, fileWeight, money,
+  newDocument, readDataFile, readImageFile, uid, withEvent
 } from './store.js'
 import { askAi, buildSystemPrompt, parseAction, splitDataUrl } from './ai.js'
 import { dictationSupported, speak, stopSpeaking, useDictation } from './voice.js'
@@ -79,7 +79,8 @@ export function AssistantScreen({
 }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
-  const [photos, setPhotos] = useState([])
+  // images et fichiers mêlés : l'ordre d'ajout est celui que voit l'utilisateur
+  const [attached, setAttached] = useState([])
   const [busy, setBusy] = useState(false)
   const [handsFree, setHandsFree] = useState(false)
   const endRef = useRef(null)
@@ -157,13 +158,15 @@ export function AssistantScreen({
     }
   }
 
-  const addPhotos = e => {
-    const files = Array.from(e.target.files || [])
+  const addFiles = e => {
+    const picked = Array.from(e.target.files || [])
     e.target.value = ''
-    // 1400 px : une capture d'écran doit rester lisible par le modèle
-    Promise.all(files.map(f => readImageFile(f, 1400)))
-      .then(srcs => setPhotos(p => [...p, ...srcs]))
-      .catch(() => push({ role: 'error', text: "Cette image n'a pas pu être lue." }))
+    Promise.all(picked.map(f => f.type.startsWith('image/')
+      // 1400 px : une capture d'écran doit rester lisible par le modèle
+      ? readImageFile(f, 1400).then(src => ({ id: uid(), kind: 'image', name: f.name, size: f.size, src }))
+      : readDataFile(f)))
+      .then(items => setAttached(list => [...list, ...items]))
+      .catch(err => push({ role: 'error', text: err.message || "Ce fichier n'a pas pu être lu." }))
   }
 
   // Renvoie la phrase à dire à voix haute en mains libres.
@@ -314,13 +317,13 @@ export function AssistantScreen({
 
   const send = async () => {
     const text = input.trim()
-    const shots = photos
-    if ((!text && !shots.length) || busy) return
+    const joined = attached
+    if ((!text && !joined.length) || busy) return
 
     const history = buildHistory()
-    push({ role: 'me', text, photos: shots })
+    push({ role: 'me', text, attached: joined })
     setInput('')
-    setPhotos([])
+    setAttached([])
     typedRef.current = ''
     dict.reset()
     // Le micro se tait pendant la réponse : sinon il transcrirait la voix de
@@ -331,8 +334,9 @@ export function AssistantScreen({
     try {
       const raw = await askAi(settings.ai, {
         system: buildSystemPrompt({ settings, docs, expenses, clients, items, draft: draftRef.current }),
-        text: text || 'Regarde cette image et fais ce qu\'il faut.',
-        images: shots.map(splitDataUrl).filter(Boolean),
+        text: text || 'Regarde ce que je t\'envoie et fais ce qu\'il faut.',
+        images: joined.filter(a => a.kind === 'image').map(a => splitDataUrl(a.src)).filter(Boolean),
+        files: joined.filter(a => a.kind === 'file').map(a => splitDataUrl(a.src)).filter(Boolean),
         history
       })
       const data = parseAction(raw)
@@ -386,8 +390,10 @@ export function AssistantScreen({
       </div>}
 
       {messages.map(m => <div key={m.id} className={`bubble ${m.role}`}>
-        {m.photos?.length > 0 && <div className="bubble-photos">
-          {m.photos.map((p, i) => <img key={i} src={p} alt=""/>)}
+        {m.attached?.length > 0 && <div className="bubble-photos">
+          {m.attached.map(a => a.kind === 'image'
+            ? <img key={a.id} src={a.src} alt=""/>
+            : <span key={a.id} className="file-chip"><Paperclip size={14}/> {a.name}</span>)}
         </div>}
         {m.text && <p>{m.text}</p>}
         {m.card && <div className="ai-card">
@@ -412,10 +418,12 @@ export function AssistantScreen({
         {handsFree ? 'Je t\'écoute — ça part tout seul quand tu arrêtes de parler.' : 'Je t\'écoute… appuie sur le micro pour arrêter.'}
       </p>}
 
-      {photos.length > 0 && <div className="chat-photos">
-        {photos.map((p, i) => <div className="chat-photo" key={i}>
-          <img src={p} alt=""/>
-          <button className="icon danger" onClick={() => setPhotos(list => list.filter((_, x) => x !== i))}><X size={13}/></button>
+      {attached.length > 0 && <div className="chat-photos">
+        {attached.map(a => <div className={a.kind === 'image' ? 'chat-photo' : 'chat-photo file'} key={a.id}>
+          {a.kind === 'image'
+            ? <img src={a.src} alt=""/>
+            : <span className="file-card"><Paperclip size={15}/><b>{a.name}</b><small>{fileWeight(a.size)}</small></span>}
+          <button className="icon danger" onClick={() => setAttached(list => list.filter(x => x.id !== a.id))}><X size={13}/></button>
         </div>)}
       </div>}
 
@@ -423,11 +431,11 @@ export function AssistantScreen({
         <label className="icon" title="Prendre une photo">
           <Camera size={22}/>
           {/* capture : ouvre l'appareil photo directement sur un téléphone */}
-          <input type="file" accept="image/*" capture="environment" hidden onChange={addPhotos}/>
+          <input type="file" accept="image/*" capture="environment" hidden onChange={addFiles}/>
         </label>
-        <label className="icon" title="Joindre une photo ou une capture d'écran">
+        <label className="icon" title="Joindre une photo, une capture d'écran ou un PDF">
           <ImagePlus size={22}/>
-          <input type="file" accept="image/*" multiple hidden onChange={addPhotos}/>
+          <input type="file" accept="image/*,application/pdf,.pdf" multiple hidden onChange={addFiles}/>
         </label>
         <textarea
           rows={1}
@@ -442,7 +450,7 @@ export function AssistantScreen({
           aria-label={micLabel}
           onClick={toggleMic}
         >{dict.listening ? <MicOff size={22}/> : <Mic size={22}/>}</button>}
-        <button className="primary" disabled={busy || (!input.trim() && !photos.length)} onClick={send}>
+        <button className="primary" disabled={busy || (!input.trim() && !attached.length)} onClick={send}>
           <Send size={18}/>
         </button>
       </div>

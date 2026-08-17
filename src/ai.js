@@ -68,8 +68,10 @@ async function readResponse(res) {
 
 const trimBase = (url, fallback) => String(url || fallback).replace(/\/+$/, '')
 
-async function callAnthropic(cfg, { system, text, images, history }) {
+async function callAnthropic(cfg, { system, text, images, files, history }) {
   const content = [
+    // Claude lit un PDF nativement : pages, tableaux et mise en page comprises.
+    ...files.map(f => ({ type: 'document', source: { type: 'base64', media_type: f.mediaType, data: f.data } })),
     ...images.map(i => ({ type: 'image', source: { type: 'base64', media_type: i.mediaType, data: i.data } })),
     { type: 'text', text }
   ]
@@ -99,7 +101,10 @@ async function callAnthropic(cfg, { system, text, images, history }) {
 // OpenAI et tous les fournisseurs qui copient son format (DeepSeek, Qwen, Groq,
 // OpenRouter, serveurs locaux…). max_tokens est volontairement omis : les
 // modèles récents ont renommé ce champ et le laisser casserait l'appel.
-async function callOpenAiCompatible(cfg, { system, text, images, history }, fallbackBase) {
+async function callOpenAiCompatible(cfg, { system, text, images, files, history }, fallbackBase) {
+  // Le format de chat d'OpenAI ne transporte pas de PDF. Le dire franchement
+  // plutôt que d'envoyer un appel qui reviendra en erreur obscure.
+  if (files.length) throw new Error("Ce fournisseur ne lit pas les PDF. Choisis Anthropic (Claude) ou Google (Gemini) dans les réglages, ou envoie une photo de la page.")
   const content = [
     { type: 'text', text },
     ...images.map(i => ({ type: 'image_url', image_url: { url: i.url } }))
@@ -120,9 +125,11 @@ async function callOpenAiCompatible(cfg, { system, text, images, history }, fall
   return json.choices?.[0]?.message?.content || ''
 }
 
-async function callGemini(cfg, { system, text, images, history }) {
+async function callGemini(cfg, { system, text, images, files, history }) {
   const parts = [
     { text },
+    // Gemini prend le PDF par le même chemin que les images
+    ...files.map(f => ({ inline_data: { mime_type: f.mediaType, data: f.data } })),
     ...images.map(i => ({ inline_data: { mime_type: i.mediaType, data: i.data } }))
   ]
   const base = trimBase(cfg.baseUrl, 'https://generativelanguage.googleapis.com/v1beta')
@@ -149,6 +156,7 @@ export function askAi(cfg, payload) {
     system: payload.system,
     text: payload.text,
     images: payload.images || [],
+    files: payload.files || [],
     history: payload.history || []
   }
   if (cfg.provider === 'anthropic') return callAnthropic(cfg, input)
@@ -270,7 +278,8 @@ Règles :
 - Reprends les prix du catalogue quand la description correspond, au lieu d'en inventer.
 - Unités courantes : ea, h, pi², pi lin., verge², jour, lot, km.
 - Le message arrive souvent d'une dictée vocale, sur un chantier : la ponctuation manque, les nombres sont écrits en toutes lettres (« deux cent cinquante pieds carrés » = qty 250, unit pi²), « piasses » et « dollars » veulent dire le prix, et un nom de client peut être mal transcrit — reprends celui de la liste des clients quand ça se ressemble. Ne réclame pas une reformulation pour une faute de transcription : garde le sens.
-- Les photos et captures d'écran sont à lire au complet : chaque ligne de travail, sa quantité et son prix s'il y est. Un prix illisible ou absent se prend au catalogue ; si rien ne correspond, mets rate 0 et dis-le dans "reply" au lieu d'inventer un montant.
+- Les photos, captures d'écran et PDF sont à lire au complet : chaque ligne de travail, sa quantité et son prix s'il y est. Un prix illisible ou absent se prend au catalogue ; si rien ne correspond, mets rate 0 et dis-le dans "reply" au lieu d'inventer un montant.
+- Un PDF joint est souvent un devis de fournisseur, un bon de travail, une soumission ou une facture reçue. Sers-t'en pour monter la facture : reprends les quantités et les descriptions, mais applique MES prix du catalogue quand la description correspond — les prix du fournisseur sont ses prix à lui, pas les miens. Si le PDF n'est pas une liste de travaux (un contrat, une preuve d'assurance), utilise "answer" pour dire ce que c'est et demander ce qu'il faut en faire.
 - Ne calcule jamais un sous-total, une taxe ou un total : l'application s'en charge. Mets seulement qty, unit et rate par ligne.
 - Pour les questions d'argent, reprends exactement les chiffres réels ci-dessus. Si un chiffre demandé n'y est pas, dis-le au lieu de l'estimer.
 - Si la demande est ambiguë, utilise "answer" pour poser ta question au lieu de deviner.
