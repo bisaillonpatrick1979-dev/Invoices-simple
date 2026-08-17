@@ -8,7 +8,7 @@ import {
   load, save, emptySettings, hasDraftContent, mergeItemsFromLines, mergeSettings,
   migrateOldData, newDocument
 } from './store.js'
-import { seedItems } from './seed.js'
+import { prepareItems } from './seed.js'
 import { DocumentList } from './lists.jsx'
 import { DocumentEditor } from './editor.jsx'
 import { ClientsScreen, ItemsScreen, ExpensesScreen } from './catalog.jsx'
@@ -49,7 +49,7 @@ function App() {
   const [plusOpen, setPlusOpen] = useState(false)
   const [settings, setSettings] = useState(() => mergeSettings(migrated?.settings || load('is_settings', emptySettings)))
   const [clients, setClients] = useState(() => migrated?.clients || load('is_clients', []))
-  const [items, setItems] = useState(() => seedItems(load('is_items', [])))
+  const [items, setItems] = useState(() => prepareItems(load('is_items', [])))
   const [expenses, setExpenses] = useState(() => load('is_expenses', []))
   const [docs, setDocs] = useState(() => migrated?.docs || load('is_docs', []))
   // On rouvre la facture qui était à l'écran la dernière fois : fermer
