@@ -55,19 +55,51 @@ export async function buildPdf(settings, doc) {
   }
 
   // ===== Filigrane =====
-  // Dessiné en premier, sous tout le reste, comme à l'écran.
+  // Posé à la toute fin, par-dessus le contenu et sur chaque page. Dessous,
+  // chaque rangée du tableau le découpait en bandes : les zébrures
+  // l'assombrissaient, les rangées blanches l'effaçaient. Il traverse
+  // maintenant la page d'un seul tenant, assez pâle pour lire au travers.
   const wm = settings.watermark || {}
-  if (wm.mode !== 'none') {
-    const label = (wm.mode === 'text' ? wm.text : '') || b.name || ''
-    if (label) {
-      pdf.saveGraphicsState()
-      pdf.setGState(new pdf.GState({ opacity: Math.min(Math.max(Number(wm.opacity) || 8, 1), 40) / 100 }))
-      pdf.setFont('helvetica', 'bold')
-      pdf.setFontSize(64)
-      pdf.setTextColor(90, 90, 90)
-      pdf.text(clean(label), W / 2, H / 2, { align: 'center', angle: Number(wm.rotate) || -24 })
-      pdf.restoreGraphicsState()
+  const drawWatermark = () => {
+    if (wm.mode === 'none') return
+    const angle = Number(wm.rotate) || 0
+    const logo = wm.mode === 'logo' ? settings.logo : ''
+    pdf.saveGraphicsState()
+    pdf.setGState(new pdf.GState({ opacity: Math.min(Math.max(Number(wm.opacity) || 8, 1), 40) / 100 }))
+    let drawn = false
+    if (logo) {
+      try {
+        const props = pdf.getImageProperties(logo)
+        const w = W * (Math.min(Math.max(Number(wm.size) || 60, 20), 100) / 100)
+        const h = (props.height / props.width) * w
+        // addImage tourne autour du coin de l'image : on décale du même angle
+        // pour que le motif reste centré sur la page.
+        const rad = (angle * Math.PI) / 180
+        const cx = W / 2 - (w / 2) * Math.cos(rad) + (h / 2) * Math.sin(rad)
+        const cy = H / 2 - (w / 2) * Math.sin(rad) - (h / 2) * Math.cos(rad)
+        pdf.addImage(logo, undefined, cx, cy, w, h, undefined, undefined, angle)
+        drawn = true
+      } catch { /* logo illisible : le nom prend le relais */ }
     }
+    if (!drawn) {
+      const label = (wm.mode === 'text' ? wm.text : '') || b.name || ''
+      if (label) {
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(64)
+        pdf.setTextColor(90, 90, 90)
+        pdf.text(clean(label), W / 2, H / 2, { align: 'center', angle: angle || -24 })
+      }
+    }
+    pdf.restoreGraphicsState()
+  }
+
+  // Un aplat qui laisse passer le filigrane, comme les zébrures à l'écran.
+  const fill = (x, yy, w, h, color, opacity) => {
+    pdf.saveGraphicsState()
+    pdf.setGState(new pdf.GState({ opacity }))
+    pdf.setFillColor(...color)
+    pdf.rect(x, yy, w, h, 'F')
+    pdf.restoreGraphicsState()
   }
 
   // ===== Entête =====
@@ -134,10 +166,8 @@ export async function buildPdf(settings, doc) {
   if (doc.siteAddress) {
     const lines = pdf.splitTextToSize(clean(doc.siteAddress), W - 2 * M - 8)
     const boxH = 7 + lines.length * (LINE - 0.6)
-    pdf.setFillColor(244, 245, 253)
-    pdf.rect(M, y - 4, W - 2 * M, boxH, 'F')
-    pdf.setFillColor(...accent)
-    pdf.rect(M, y - 4, 1.2, boxH, 'F')
+    fill(M, y - 4, W - 2 * M, boxH, accent, 0.06)
+    fill(M, y - 4, 1.2, boxH, accent, 1)
     text('ADRESSE DES TRAVAUX', M + 4, { bold: true, size: 8, color: accent })
     y += LINE - 1
     for (const l of lines) {
@@ -150,8 +180,7 @@ export async function buildPdf(settings, doc) {
   // ===== Tableau des lignes =====
   const cols = [M + 2, W - M - 78, W - M - 58, W - M - 34, W - M - 2]   // desc, qté, unité, prix, total
   const header = () => {
-    pdf.setFillColor(...accent)
-    pdf.rect(M, y - 4.6, W - 2 * M, 8, 'F')
+    fill(M, y - 4.6, W - 2 * M, 8, accent, 0.86)
     const t = (s, x, align) => {
       pdf.setFont('helvetica', 'bold')
       pdf.setFontSize(8)
@@ -176,10 +205,7 @@ export async function buildPdf(settings, doc) {
       y = M
       header()
     }
-    if (zebra) {
-      pdf.setFillColor(247, 248, 251)
-      pdf.rect(M, y - 4.6, W - 2 * M, rowH, 'F')
-    }
+    if (zebra) fill(M, y - 4.6, W - 2 * M, rowH, [15, 23, 42], 0.035)
     zebra = !zebra
     const top = y
     for (const d of desc) {
@@ -258,6 +284,8 @@ export async function buildPdf(settings, doc) {
   const pages = pdf.getNumberOfPages()
   for (let i = 1; i <= pages; i++) {
     pdf.setPage(i)
+    // sur chaque page, et non plus seulement la première
+    drawWatermark()
     pdf.setFont('helvetica', 'normal')
     pdf.setFontSize(8)
     pdf.setTextColor(140, 146, 158)

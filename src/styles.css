@@ -779,7 +779,11 @@ button.primary.wide { width: 100%; margin-top: 12px; }
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  z-index: 0;
+  /* Par-dessus le contenu, pas dessous : sous le tableau, chaque rangée le
+     découpait en bandes — les zébrures l'assombrissaient, les rangées
+     blanches l'effaçaient. Un filigrane doit traverser la page d'un seul
+     tenant. Il reste très pâle, le texte se lit au travers. */
+  z-index: 3;
 }
 .watermark img {
   width: calc(var(--wm-size) * 1%);
