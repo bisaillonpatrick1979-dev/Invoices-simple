@@ -148,7 +148,10 @@ textarea { resize: vertical; }
 }
 
 /* ===== Listes de documents ===== */
-.doclist { display: flex; flex-direction: column; }
+/* De quoi faire remonter la dernière rangée au-dessus des bulles flottantes :
+   sans ce fond de page, le crayon et la poubelle du dernier article restent
+   sous la bulle, hors d'atteinte. */
+.doclist { display: flex; flex-direction: column; padding-bottom: 150px; }
 .year-head {
   display: flex;
   justify-content: space-between;
