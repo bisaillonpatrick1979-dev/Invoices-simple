@@ -39,6 +39,18 @@ const slop = d => (d.touch ? TOUCH_SLOP : MOUSE_SLOP)
 const TAP_MS = 350
 const TAP_MAX = 26
 
+// Après un appui, le navigateur envoie encore un « click » de compatibilité.
+// L'écran a déjà changé : ce click retombe sur ce qui occupe maintenant la
+// place du doigt. Toucher « + » sur la liste ouvrait la facture, puis le click
+// fantôme atteignait le bouton « Envoyer » de l'éditeur, au même endroit, et
+// son menu s'ouvrait tout seul par-dessus la facture neuve.
+const swallowNextClick = () => {
+  const kill = e => { e.stopPropagation(); e.preventDefault() }
+  document.addEventListener('click', kill, { capture: true, once: true })
+  // s'il ne vient pas, on retire le piège plutôt que de le laisser tendu
+  setTimeout(() => document.removeEventListener('click', kill, { capture: true }), 400)
+}
+
 // `resolve` permet à une bulle de corriger sa place au démarrage et après
 // chaque dépôt — c'est ce qui empêche celle de l'IA de s'asseoir sur le « + ».
 export function useFabDrag(key, fallback, onClick, resolve) {
@@ -88,8 +100,10 @@ export function useFabDrag(key, fallback, onClick, resolve) {
     // le bouton d'ajout inutilisable.
     if (dist < slop(d) || (Date.now() - d.at < TAP_MS && dist < TAP_MAX)) {
       if (d.moved) setPos(d.from)      // elle avait commencé à suivre le doigt
+      swallowNextClick()
       return onClick()
     }
+    swallowNextClick()                 // un glissement ne doit rien déclencher non plus
     // déposée sur l'autre bulle : on l'écarte plutôt que de la laisser
     // masquer un bouton
     if (resolve) setPos(p => resolve(p))
