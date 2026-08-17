@@ -271,7 +271,7 @@ Remise : -${money(totals.discount)}
 ${settings.taxLabel} (${doc.taxRate}%) : ${money(totals.tax)}
 Total : ${money(totals.total)}
 ${totals.paid > 0 ? `Paiements : ${money(totals.paid)}\nSolde dû : ${money(totals.balance)}\n` : ''}
-Note : pour joindre le PDF, cliquez d'abord sur PDF / Save as PDF, puis attachez le fichier dans votre email.
+Note : pour joindre le PDF, utilisez « Envoyer le PDF » depuis l'application — ce message-ci ne transporte que le texte.
 
 Merci,
 ${b.name}
@@ -279,9 +279,18 @@ ${b.phone || ''}
 ${b.email || ''}`)
 }
 
-// Le texto dit l'essentiel : le PDF suit par courriel ou de la main à la main.
-export const buildSmsBody = (settings, doc, totals) =>
-  `Bonjour ${doc.client.name || ''}, votre ${doc.docType === 'invoice' ? 'facture' : 'devis'} ${doc.number} de ${money(totals.total)} est prête. ${settings.business.name}`
+// Le texto dit l'essentiel, avec le chantier et le numéro de la compagnie :
+// le client doit savoir quoi il paie, et à qui répondre.
+export const buildSmsBody = (settings, doc, totals) => {
+  const b = settings.business || {}
+  const kind = doc.docType === 'invoice' ? 'facture' : 'devis'
+  return [
+    `Bonjour ${doc.client.name || ''},`.trim(),
+    `votre ${kind} ${doc.number} de ${money(totals.total)} est prête.`,
+    doc.siteAddress ? `Travaux au ${doc.siteAddress}.` : '',
+    [b.name, b.phone].filter(Boolean).join(' — ')
+  ].filter(Boolean).join(' ')
+}
 
 export function docStatus(doc) {
   const { total, balance } = calcTotals(doc)

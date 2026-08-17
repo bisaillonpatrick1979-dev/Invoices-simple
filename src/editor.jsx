@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft, MoreVertical, ChevronRight, Send, Paperclip, Trash2,
-  Mail, MessageSquare, Printer, Clock, X, Maximize2, PenLine, Eye, MapPin
+  Mail, MessageSquare, Printer, Clock, X, Maximize2, PenLine, Eye, MapPin,
+  Share2, Download
 } from 'lucide-react'
 import {
   buildEmailBody, buildSmsBody, calcTotals, docStatus, fmtDate, lineTotal, money,
   newLine, suggestItems, uid, today, emptyClient, withEvent, UNITS
 } from './store.js'
+import { canSharePdf, downloadPdf, sharePdf } from './pdf.js'
 import { AppBar } from './lists.jsx'
 import { InvoicePaper } from './paper.jsx'
 
@@ -58,6 +60,10 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
   const [menuOpen, setMenuOpen] = useState(false)
   const [clientOpen, setClientOpen] = useState(false)
   const [siteOpen, setSiteOpen] = useState(false)
+  const [shareError, setShareError] = useState('')
+  // Le partage de fichier n'existe pas sur tous les navigateurs : sur un
+  // ordinateur, c'est l'enregistrement du PDF qui prend le relais.
+  const [shareable] = useState(canSharePdf)
   const [payOpen, setPayOpen] = useState(false)
   const [sigOpen, setSigOpen] = useState(false)
   const totals = calcTotals(doc)
@@ -88,6 +94,33 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
     const body = encodeURIComponent(buildSmsBody(settings, saved, totals))
     window.location.href = `sms:${saved.client.phone}?&body=${body}`
     setSendOpen(false)
+  }
+
+  // Envoi du PDF en pièce jointe, par le partage du téléphone : une seule
+  // touche pour choisir Messages, Gmail, ou les deux.
+  const sharePdfTo = async () => {
+    const saved = persist(withEvent({ ...doc, status: 'sent' }, 'PDF partagé'))
+    setSendOpen(false)
+    try {
+      await sharePdf(settings, saved, {
+        title: `${saved.number} — ${settings.business.name}`,
+        text: buildSmsBody(settings, saved, totals)
+      })
+    } catch (e) {
+      // Annuler le partage n'est pas une panne : on ne dit rien.
+      if (e?.name === 'AbortError') return
+      setShareError("Ce navigateur n'a pas voulu partager le fichier. Enregistre le PDF, puis joins-le à ton message.")
+    }
+  }
+
+  const savePdf = async () => {
+    const saved = persist(withEvent(doc, 'PDF enregistré'))
+    setSendOpen(false)
+    try {
+      await downloadPdf(settings, saved)
+    } catch {
+      setShareError("Le PDF n'a pas pu être créé. Utilise « Imprimer » et choisis « Enregistrer en PDF ».")
+    }
   }
 
   // Voir la facture telle qu'elle sortira, avant de l'envoyer
@@ -392,9 +425,23 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
         <div className="send-menu" onClick={e => e.stopPropagation()}>
           <button onClick={previewPdf}><Eye size={19}/> Aperçu PDF</button>
           <div className="send-menu-sep"/>
-          <button onClick={sendEmail}><Mail size={19}/> Email</button>
-          <button onClick={sendSms}><MessageSquare size={19}/> Texto</button>
-          <button onClick={printPdf}><Printer size={19}/> PDF</button>
+          {/* Le partage natif est le seul chemin qui attache vraiment le PDF :
+              il ouvre Messages, Gmail, WhatsApp… au choix, et permet d'envoyer
+              aux deux. Un lien sms: ou mailto: ne transporte que du texte. */}
+          {shareable && <>
+            <button onClick={sharePdfTo}><Share2 size={19}/> <span>Envoyer le PDF<small>texto, courriel, au choix</small></span></button>
+            <div className="send-menu-sep"/>
+          </>}
+          <button onClick={sendEmail}><Mail size={19}/> <span>Courriel<small>texte seulement</small></span></button>
+          <button onClick={sendSms}><MessageSquare size={19}/> <span>Texto<small>texte seulement</small></span></button>
+          <button onClick={savePdf}><Download size={19}/> Enregistrer le PDF</button>
+          <button onClick={printPdf}><Printer size={19}/> Imprimer</button>
+        </div>
+      </div>}
+      {shareError && <div className="menu-backdrop no-print" onClick={() => setShareError('')}>
+        <div className="send-menu" onClick={e => e.stopPropagation()}>
+          <p className="hint small-note padded">{shareError}</p>
+          <button onClick={() => { setShareError(''); savePdf() }}><Download size={19}/> Enregistrer le PDF</button>
         </div>
       </div>}
       {/* sur l'aperçu, les deux actions sont côte à côte : plus de bouton

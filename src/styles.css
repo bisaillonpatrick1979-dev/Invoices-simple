@@ -519,6 +519,10 @@ button.primary.wide { width: 100%; margin-top: 12px; }
   padding: 14px 18px;
   font-size: 15.5px;
 }
+/* certaines entrées portent une précision sous leur nom */
+.send-menu button span { display: flex; flex-direction: column; line-height: 1.25; }
+.send-menu button small { color: var(--muted); font-size: 12px; }
+.send-menu .padded { margin: 0; padding: 14px 18px 6px; max-width: 250px; }
 .send-menu button:hover { background: #f4f5f8; }
 .send-menu-sep { height: 1px; background: var(--line); margin: 2px 0; }
 

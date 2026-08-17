@@ -9,6 +9,7 @@ import {
 } from './store.js'
 import { askAi, buildSystemPrompt, parseAction, splitDataUrl } from './ai.js'
 import { dictationSupported, speak, stopSpeaking, useDictation } from './voice.js'
+import { canSharePdf, sharePdf } from './pdf.js'
 import { AppBar, clampFab, fabsOverlap, plusFabPos, useFabDrag, FAB_GAP, FAB_SIZE } from './lists.jsx'
 
 const AI_FAB_SIZE = 52
@@ -253,7 +254,7 @@ export function AssistantScreen({
         card: {
           kind: 'send',
           title: bySms ? `Texto à ${to}` : `Courriel à ${to}`,
-          detail: `${doc.number} • ${money(calcTotals(doc).total)} — tu appuies sur Envoyer dans ton app`,
+          detail: `${doc.number} • ${money(calcTotals(doc).total)}${canSharePdf() ? ' — PDF en pièce jointe' : ''} — tu appuies sur Envoyer dans ton app`,
           openLabel: 'Préparer',
           onOpen: () => openSend(doc, bySms)
         }
@@ -266,14 +267,30 @@ export function AssistantScreen({
     return text
   }
 
-  // Ouvre l'app de courriel ou de texto avec le message déjà écrit, et note
-  // l'envoi dans l'historique de la facture.
-  const openSend = (doc, bySms) => {
+  // Prépare l'envoi et note le geste dans l'historique. Quand le téléphone
+  // sait partager un fichier, la facture part en PDF attaché — sinon on ouvre
+  // l'app de courriel ou de texto avec le message écrit.
+  const openSend = async (doc, bySms) => {
     const totals = calcTotals(doc)
+    const withPdf = canSharePdf()
     const saved = onCreateDoc(withEvent(
       { ...doc, status: 'sent' },
-      bySms ? 'Envoyée par texto (assistant)' : 'Envoyée par email (assistant)'
+      withPdf ? 'PDF partagé (assistant)' : bySms ? 'Envoyée par texto (assistant)' : 'Envoyée par email (assistant)'
     ))
+
+    if (withPdf) {
+      try {
+        await sharePdf(settings, saved, {
+          title: `${saved.number} — ${settings.business.name}`,
+          text: buildSmsBody(settings, saved, totals)
+        })
+        return
+      } catch (e) {
+        if (e?.name === 'AbortError') return
+        // le partage a refusé : on retombe sur le message texte
+      }
+    }
+
     const body = encodeURIComponent(bySms ? buildSmsBody(settings, saved, totals) : buildEmailBody(settings, saved, totals))
     if (bySms) {
       window.location.href = `sms:${saved.client.phone}?&body=${body}`

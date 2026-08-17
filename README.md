@@ -19,6 +19,24 @@ Onglets **Modifier / Aperçu / Historique** comme l'app de référence :
 - **Historique** : chaque enregistrement, envoi, paiement est journalisé
 - Bouton flottant **Envoyer** : Email, Texto ou PDF
 
+## Envoyer la facture avec le PDF attaché
+
+Bouton **Envoyer** dans l'éditeur :
+
+| Entrée | Ce qui part |
+|---|---|
+| **Envoyer le PDF** | Le partage du téléphone s'ouvre : **Messages, Gmail, WhatsApp… au choix, avec le PDF en pièce jointe**. Rien n'empêche de l'envoyer par texto *et* par courriel — on repasse par le bouton une deuxième fois. |
+| **Courriel** | Ouvre l'app de courriel avec le détail écrit dans le message (texte seulement) |
+| **Texto** | Ouvre l'app de messages avec le résumé, le chantier et le numéro de la compagnie |
+| **Enregistrer le PDF** | Le fichier dans les téléchargements, à joindre à la main |
+| **Aperçu PDF** / **Imprimer** | Voir avant d'envoyer, ou imprimer |
+
+Le PDF est un **vrai fichier** produit par l'app (`INVOICE0012.pdf`), pas une impression du navigateur : logo, filigrane, adresse des travaux, tableau des lignes, remise, taxe, paiements et solde dû, remarques, info de paiement, signature, et le nom + téléphone de la compagnie en pied de page. Il se recompose sur plusieurs pages quand la facture est longue.
+
+Un lien `mailto:` ou `sms:` **ne peut pas transporter de fichier** — c'est une limite des navigateurs, pas un oubli. D'où le partage natif, qui est le seul chemin qui attache vraiment le PDF. Sur un ordinateur, où ce partage n'existe pas, l'entrée disparaît et **Enregistrer le PDF** prend le relais.
+
+Le générateur de PDF n'est téléchargé qu'au premier PDF demandé : il pèse plus que toute l'app, et on ouvre l'app bien plus souvent qu'on ne sort un PDF.
+
 ## Autres écrans
 
 - **Clients / Articles / Dépenses** : listes avec bouton « + » flottant, recherche et formulaires en feuille du bas
