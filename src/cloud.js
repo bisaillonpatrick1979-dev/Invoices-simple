@@ -69,7 +69,21 @@ export const cloudError = e => {
 
 // ===== Auth =====
 export const signIn = (email, password) => cloud().auth.signInWithPassword({ email: email.trim(), password })
-export const signUp = (email, password) => cloud().auth.signUp({ email: email.trim(), password })
+
+// emailRedirectTo : sans ça, le lien de confirmation renvoie vers l'adresse
+// par défaut du projet Supabase — localhost:3000 — et le téléphone tombe sur
+// « connexion refusée ». On lui donne l'adresse d'où part la demande.
+export const signUp = (email, password) => cloud().auth.signUp({
+  email: email.trim(),
+  password,
+  options: { emailRedirectTo: window.location.origin }
+})
+
+export const resendConfirmation = email => cloud().auth.resend({
+  type: 'signup',
+  email: email.trim(),
+  options: { emailRedirectTo: window.location.origin }
+})
 export const signOut = () => cloud().auth.signOut()
 export const getSession = () => cloud()?.auth.getSession() || Promise.resolve({ data: { session: null } })
 export const onAuthChange = fn => cloud()?.auth.onAuthStateChange((_e, session) => fn(session?.user || null))

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Cloud, CloudOff, RefreshCw, LogOut } from 'lucide-react'
 import { calcTotals, docStatus } from './store.js'
-import { cloud, cloudError, forgetSnapshot, onAuthChange, signIn, signOut, signUp, syncAll } from './cloud.js'
+import { cloud, cloudError, forgetSnapshot, onAuthChange, resendConfirmation, signIn, signOut, signUp, syncAll } from './cloud.js'
 
 const totalsOf = doc => ({ ...calcTotals(doc), status: docStatus(doc) })
 
@@ -59,10 +59,24 @@ export function CloudSection({ user, state, sync, onSignedOut }) {
       const { data, error } = mode === 'in' ? await signIn(email, password) : await signUp(email, password)
       if (error) throw error
       if (mode === 'up' && !data.session) {
-        setMsg({ text: 'Compte créé. Confirme le courriel qu\'on vient de t\'envoyer, puis connecte-toi.' })
+        setMsg({ text: "Compte créé. Ouvre le courriel qu'on vient de t'envoyer et touche le lien, puis reviens ici te connecter.", resend: true })
       } else {
         setPassword('')
       }
+    } catch (e) {
+      const text = cloudError(e)
+      // un compte pas encore confirmé se débloque en renvoyant le courriel
+      setMsg({ err: true, text, resend: /confirm/i.test(text) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const resend = async () => {
+    setBusy(true)
+    try {
+      await resendConfirmation(email)
+      setMsg({ text: "Courriel renvoyé. Touche le lien qu'il contient, puis reviens te connecter." })
     } catch (e) {
       setMsg({ err: true, text: cloudError(e) })
     } finally {
@@ -103,10 +117,11 @@ export function CloudSection({ user, state, sync, onSignedOut }) {
       <Cloud size={18}/> {busy ? 'Un instant…' : mode === 'in' ? 'Se connecter' : 'Créer le compte'}
     </button>
     {msg && <p className={msg.err ? 'hint small-note ai-test err' : 'hint small-note ai-test'}>{msg.text}</p>}
+    {msg?.resend && <button className="link-btn" disabled={busy} onClick={resend}>Renvoyer le courriel de confirmation</button>}
   </>
 
   return <>
-    <p className="hint small-note">Connecté comme <b>{user.email}</b>. Les factures, clients, articles, dépenses et réglages sont copiés dans le schéma <code>invoices_simple</code> de ton projet — à part des tables de Hailite Manager.</p>
+    <p className="hint small-note">Connecté comme <b>{user.email}</b>. Factures, clients, articles, dépenses et réglages sont copiés dans le projet Supabase de l'application, et suivent d'un appareil à l'autre.</p>
     <div className="cloud-state">
       {state.busy
         ? <><RefreshCw size={16} className="spin"/> Synchro en cours…</>
