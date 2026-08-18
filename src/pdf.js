@@ -70,8 +70,17 @@ export async function buildPdf(settings, doc) {
     if (logo) {
       try {
         const props = pdf.getImageProperties(logo)
-        const w = W * (Math.min(Math.max(Number(wm.size) || 60, 20), 100) / 100)
-        const h = (props.height / props.width) * w
+        // La taille réglée donne la largeur, mais un logo haut déborderait de
+        // la page et se ferait couper : l'aperçu le borne à 94 % de la page,
+        // le PDF doit faire pareil, sinon les deux ne montrent pas la même
+        // chose.
+        let w = W * (Math.min(Math.max(Number(wm.size) || 60, 20), 100) / 100)
+        let h = (props.height / props.width) * w
+        const maxW = W * 0.94
+        const maxH = H * 0.94
+        const fit = Math.min(1, maxW / w, maxH / h)
+        w *= fit
+        h *= fit
         // addImage tourne autour du coin de l'image : on décale du même angle
         // pour que le motif reste centré sur la page.
         const rad = (angle * Math.PI) / 180

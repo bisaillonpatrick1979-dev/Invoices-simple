@@ -21,6 +21,18 @@ function Slider({ label, value, suffix, onChange, ...rest }) {
 const ACCENTS = ['#4353c9', '#2e7d32', '#0f172a', '#b45309', '#7b1fa2', '#c62828']
 const WM_MODES = [{ id: 'logo', label: 'Logo' }, { id: 'text', label: 'Texte' }, { id: 'none', label: 'Aucun' }]
 
+// Quand ce code a été construit : permet de voir d'un coup d'œil si le
+// téléphone sert encore une version gardée en cache.
+const buildStamp = () => {
+  try {
+    return new Date(__BUILD_TIME__).toLocaleString('fr-CA', {
+      day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'
+    })
+  } catch {
+    return 'inconnue'
+  }
+}
+
 // Poids approximatif d'une image en data URL (base64 = 4/3 des octets)
 const dataUrlWeight = src => `${Math.round((String(src).length * 0.75) / 1024)} ko`
 
@@ -248,6 +260,10 @@ export function SettingsScreen({ settings, setSettings, cloud, data, onBack }) {
       </div>
 
       <button className="outline-btn danger" onClick={() => { if (confirm('Remettre les réglages par défaut ? (les factures et clients restent)')) setSettings(emptySettings) }}>Réinitialiser les réglages</button>
+
+      {/* Sert à savoir, depuis le téléphone, si le navigateur sert encore une
+          vieille version gardée en cache. */}
+      <p className="hint small-note centered">Version du {buildStamp()}</p>
     </div>
 
     {previewOpen && <PaperPreview
