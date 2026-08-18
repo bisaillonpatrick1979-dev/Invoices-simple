@@ -129,7 +129,10 @@ export function InvoicePaper({ settings, doc, totals }) {
       <div className="pdf-totals">
         <p><span>Sous-total</span><b>{money(totals.subtotal)}</b></p>
         {totals.discount > 0 && <p><span>Remise</span><b>-{money(totals.discount)}</b></p>}
-        <p><span>{settings.taxLabel} ({doc.taxRate}%)</span><b>{money(totals.tax)}</b></p>
+        {/* Taxe décochée : pas de ligne du tout, plutôt qu'un « Gst 0,00 $ »
+            qui laisse croire au client qu'une taxe s'applique. Le PDF fabriqué
+            fait pareil. */}
+        {doc.chargeTax && <p><span>{settings.taxLabel} ({doc.taxRate}%)</span><b>{money(totals.tax)}</b></p>}
         <p className="total"><span>Total</span><b>{money(totals.total)}</b></p>
         {totals.paid > 0 && <>
           <p><span>Paiements</span><b>-{money(totals.paid)}</b></p>

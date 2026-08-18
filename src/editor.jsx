@@ -302,7 +302,10 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
               value={l.unit || ''}
               onChange={e => setLine(l.id, { unit: e.target.value })}
             />
-            <label className="check small"><input type="checkbox" checked={l.taxable !== false} onChange={e => setLine(l.id, { taxable: e.target.checked })}/> {settings.taxLabel}</label>
+            {/* La case par ligne ne s'affiche que si la facture charge la
+                taxe : sinon elle n'a aucun effet sur le calcul et laisse croire
+                que la taxe est active. */}
+            {doc.chargeTax && <label className="check small"><input type="checkbox" checked={l.taxable !== false} onChange={e => setLine(l.id, { taxable: e.target.checked })}/> {settings.taxLabel}</label>}
             <button className="icon danger" onClick={() => set({ lines: doc.lines.filter(x => x.id !== l.id) })}><Trash2 size={16}/></button>
           </div>
         </div>)}
