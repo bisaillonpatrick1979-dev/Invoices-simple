@@ -4,25 +4,25 @@
 // n'est qu'une copie. Sur un chantier sans réseau, rien ne bloque ; la synchro
 // repart quand le signal revient.
 //
-// Les données vivent dans le schéma `invoices_simple`, jamais dans `public` :
-// le projet Supabase est partagé avec Hailite Manager, qui a ses propres
-// tables documents/clients/catalog_items pour un tout autre modèle. Deux
-// schémas séparés, aucune collision possible.
+// L'app a son propre projet Supabase, séparé de celui de Hailite Manager :
+// aucune donnée des deux applications ne se croise, ni dans les tables ni dans
+// les comptes. Les tables vivent donc dans `public`, le schéma que l'API
+// expose d'office — rien à configurer dans le tableau de bord.
 
 import { createClient } from '@supabase/supabase-js'
 import { load, save } from './store.js'
 
-const SCHEMA = 'invoices_simple'
+const SCHEMA = 'public'
 const CFG_KEY = 'is_cloud_cfg'
 const SNAP_KEY = 'is_cloud_snap'
 
-// Projet Hailite-manager. L'URL et la clé publiable sont faites pour être
+// Projet « invoices-simple ». L'URL et la clé publiable sont faites pour être
 // dans le code d'une app web : elles n'ouvrent rien toutes seules, ce sont les
 // politiques RLS qui décident, et elles n'accordent rien à qui n'est pas
 // connecté.
 const DEFAULT_CFG = {
-  url: 'https://hvqghubtzevbynzqmfis.supabase.co',
-  key: 'sb_publishable_kILAUBJ7aKV9hGi2uupyfQ_U_j6t3TM'
+  url: 'https://ksdrljqigvgxzelhtpgj.supabase.co',
+  key: 'sb_publishable_NZOb2ltakl346tScfC9KMg_E1SoKsGU'
 }
 
 export const cloudConfig = () => {
@@ -52,9 +52,9 @@ export function cloud() {
   return client
 }
 
-// PostgREST refuse un schéma qui n'est pas déclaré côté projet. C'est la seule
-// manip manuelle de l'installation, autant la reconnaître et le dire.
-const SCHEMA_HINT = `Le schéma « ${SCHEMA} » n'est pas exposé par ton projet Supabase. Dans le tableau de bord : Project Settings → API → Exposed schemas → ajoute ${SCHEMA}, puis réessaie.`
+// Ne devrait plus arriver avec un projet dédié — `public` est exposé d'office.
+// Le message reste pour le cas d'une configuration personnalisée.
+const SCHEMA_HINT = `Le schéma « ${SCHEMA} » n'est pas exposé par ce projet Supabase (Project Settings → API → Exposed schemas).`
 
 export const cloudError = e => {
   const msg = String(e?.message || e || 'Erreur inconnue')

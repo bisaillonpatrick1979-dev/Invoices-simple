@@ -198,29 +198,25 @@ La clé API de l'assistant **ne part pas** dans le fichier : elle resterait en c
 
 ## Sauvegarde infonuagique (Supabase)
 
-**Réglages → Sauvegarde infonuagique.** Sans compte, l'app marche exactement comme avant : tout reste dans le navigateur. Avec un compte, les mêmes données sont aussi copiées dans le projet Supabase **Hailite-manager**, et suivent d'un appareil à l'autre.
+**Réglages → Sauvegarde infonuagique.** Sans compte, l'app marche exactement comme avant : tout reste dans le navigateur. Avec un compte, les mêmes données sont aussi copiées dans le nuage et suivent d'un appareil à l'autre — et d'une adresse de site à l'autre.
 
-### Les deux apps ne se mélangent pas
+### Son propre projet
 
-Hailite Manager a déjà des tables `documents`, `clients`, `catalog_items` dans le schéma `public`, pour un tout autre modèle de données. Invoices Simple écrit dans **son propre schéma `invoices_simple`** :
+Invoices Simple a **son projet Supabase à elle**, `invoices-simple` (région ca-central-1), séparé de celui de Hailite Manager. Rien ne se croise : ni les tables, ni les comptes.
 
 | Table | Contenu |
 |---|---|
-| `invoices_simple.documents` | factures et devis (le document complet en `jsonb`, plus numéro/date/client/total/solde en colonnes pour chercher en SQL) |
-| `invoices_simple.clients` | clients |
-| `invoices_simple.items` | catalogue de prix |
-| `invoices_simple.expenses` | dépenses |
-| `invoices_simple.settings` | réglages de l'entreprise |
+| `documents` | factures et devis (le document complet en `jsonb`, plus numéro/date/client/total/solde/chantier en colonnes pour chercher en SQL) |
+| `clients` | clients |
+| `items` | catalogue de prix |
+| `expenses` | dépenses |
+| `settings` | réglages de l'entreprise |
 
-Aucun nom ne se marche dessus, et une requête du manager ne peut pas tomber sur une facture de Invoices Simple.
-
-### Une manip à faire une seule fois
-
-Supabase ne sert par son API que les schémas déclarés. Dans le tableau de bord du projet : **Project Settings → API → Exposed schemas → ajouter `invoices_simple`**. Sans ça, l'app affiche exactement cette consigne au lieu d'une erreur obscure.
+Les tables sont dans le schéma `public`, celui que l'API expose d'office : **rien à configurer dans le tableau de bord**. On crée son compte et ça marche.
 
 ### Le compte
 
-Courriel + mot de passe (Supabase Auth). Les politiques RLS ne laissent voir à un compte que ses propres lignes : la clé publique dans le code de l'app **ne donne rien** à quelqu'un qui n'est pas connecté. C'est pour ça qu'elle peut être dans le code.
+Courriel + mot de passe (Supabase Auth). Les politiques RLS ne laissent voir à un compte que ses propres lignes, et le rôle non connecté n'a aucun droit sur aucune table : la clé publique dans le code de l'app **ne donne rien** à quelqu'un qui n'est pas connecté. C'est pour ça qu'elle peut être dans le code.
 
 La **clé API de l'assistant IA ne monte jamais** dans le nuage. Elle a été saisie sur cet appareil, elle y reste.
 
