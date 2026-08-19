@@ -137,6 +137,17 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
     setTimeout(() => window.print(), 150)
   }
 
+  // Une facture part parfois autrement que par l'app — remise en main propre,
+  // envoyée depuis un autre appareil. Le bouton permet de le dire, et de
+  // revenir en arrière si on s'est trompé.
+  const toggleSent = () => {
+    const sent = doc.status === 'sent'
+    persist(withEvent(
+      { ...doc, status: sent ? 'draft' : 'sent' },
+      sent ? 'Remise en cours' : 'Marquée comme envoyée'
+    ))
+  }
+
   const markPaid = () => {
     if (totals.balance <= 0) return
     persist(withEvent({
@@ -397,6 +408,11 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
         </div>}
       </div>
 
+      {/* L'état se lit dans la liste : ces deux boutons sont ce qui le change
+          à la main, quand l'envoi ou le paiement s'est fait hors de l'app. */}
+      {isInvoice && status !== 'paid' && <button className="outline-btn" onClick={toggleSent}>
+        {doc.status === 'sent' ? 'Remettre « en cours »' : 'Marquer comme envoyée'}
+      </button>}
       {isInvoice && totals.balance > 0.005 && totals.total > 0 &&
         <button className="outline-btn" onClick={markPaid}>Marquer comme payée</button>}
       {!isInvoice && !doc.closed &&

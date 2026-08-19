@@ -81,6 +81,8 @@ Sur la liste, chaque rangée porte le **chantier** à côté du numéro et une *
 
 La recherche trouve aussi par chantier, pas seulement par client ou numéro.
 
+L'état se met à jour tout seul quand tu envoies depuis l'app. Quand la facture part autrement — remise en main propre, envoyée depuis un autre appareil —, le bouton **Marquer comme envoyée** au bas de l'éditeur le dit à l'app. Il se défait aussi : **Remettre « en cours »** si tu t'es trompé. Chaque changement est noté dans l'historique de la facture.
+
 ## Rien ne se perd
 
 **Une facture en cours s'enregistre toute seule**, sans bouton à toucher :
