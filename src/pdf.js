@@ -81,12 +81,20 @@ export async function buildPdf(settings, doc) {
         const fit = Math.min(1, maxW / w, maxH / h)
         w *= fit
         h *= fit
-        // addImage tourne autour du coin de l'image : on décale du même angle
-        // pour que le motif reste centré sur la page.
+        // Avec un angle, addImage ne pose pas l'image où on croit : il place
+        // le coin BAS-gauche de l'image (à hauteur y + h, comptée depuis le
+        // haut) puis fait tourner la page autour de ce point. Le centre du
+        // motif atterrit donc ailleurs, et le filigrane se retrouvait 23 % de
+        // page trop bas — il mordait le pied de page.
+        //
+        // Centre obtenu = coin + rotation(w/2, h/2). On renverse le calcul
+        // pour que ce centre tombe pile au milieu de la feuille.
         const rad = (angle * Math.PI) / 180
-        const cx = W / 2 - (w / 2) * Math.cos(rad) + (h / 2) * Math.sin(rad)
-        const cy = H / 2 - (w / 2) * Math.sin(rad) - (h / 2) * Math.cos(rad)
-        pdf.addImage(logo, undefined, cx, cy, w, h, undefined, undefined, angle)
+        const cos = Math.cos(rad)
+        const sin = Math.sin(rad)
+        const x = W / 2 - (w / 2) * cos + (h / 2) * sin
+        const y = H / 2 - h + (w / 2) * sin + (h / 2) * cos
+        pdf.addImage(logo, undefined, x, y, w, h, undefined, undefined, angle)
         drawn = true
       } catch { /* logo illisible : le nom prend le relais */ }
     }
@@ -96,7 +104,7 @@ export async function buildPdf(settings, doc) {
         pdf.setFont('helvetica', 'bold')
         pdf.setFontSize(64)
         pdf.setTextColor(90, 90, 90)
-        pdf.text(clean(label), W / 2, H / 2, { align: 'center', angle: angle || -24 })
+        pdf.text(clean(label), W / 2, H / 2, { align: 'center', baseline: 'middle', angle: angle || -24 })
       }
     }
     pdf.restoreGraphicsState()
