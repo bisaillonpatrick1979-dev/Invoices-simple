@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Search, Settings as SettingsIcon, Inbox, X } from 'lucide-react'
-import { calcTotals, docStatus, fmtDate, lastPaymentDate, load, money, parseNum, save } from './store.js'
+import {
+  calcTotals, docStatus, fmtDate, INVOICE_STAGES, invoiceStage, lastPaymentDate,
+  load, money, parseNum, save
+} from './store.js'
 
 export const FAB_SIZE = 58
 export const FAB_DEFAULT = { right: 18, bottom: 92 }
@@ -150,29 +153,15 @@ export function NumField({ value, onChange, ...rest }) {
   />
 }
 
+// Une adresse de chantier peut tenir sur plusieurs lignes ; la rangée n'en
+// montre que la première.
+const firstLine = v => String(v || '').split('\n')[0].trim()
+
 export function Fab({ onClick, title = 'Ajouter' }) {
   const { style, handlers } = useFabDrag('is_fab_pos', FAB_DEFAULT, onClick)
   return <button className="fab no-print" title={title} style={style} {...handlers}>
     <Plus size={28}/>
   </button>
-}
-
-// Où en est un document, en une pastille : ce que la liste doit dire d'un
-// coup d'œil. `docStatus` ne connaît que payé/impayé ; l'envoi, lui, se lit
-// sur le document.
-// Une adresse de chantier peut tenir sur plusieurs lignes ; la rangée n'en
-// montre que la première.
-const firstLine = v => String(v || '').split('\n')[0].trim()
-
-export function docBadge(doc, status) {
-  if (doc.docType === 'estimate') {
-    return status === 'closed'
-      ? { label: 'Fermé', tone: 'done' }
-      : { label: 'Ouvert', tone: 'open' }
-  }
-  if (status === 'paid') return { label: 'Payée', tone: 'done' }
-  if (doc.status === 'sent') return { label: 'En attente de paiement', tone: 'wait' }
-  return { label: 'En cours', tone: 'draft' }
 }
 
 const TABS = {
@@ -212,7 +201,7 @@ export function DocumentList({ type, docs, onOpen, onNew, onOpenSettings }) {
     const q = query.trim().toLowerCase()
     return docs
       .filter(d => d.docType === type)
-      .map(d => ({ doc: d, status: docStatus(d), totals: calcTotals(d), badge: docBadge(d, docStatus(d)) }))
+      .map(d => ({ doc: d, status: docStatus(d), totals: calcTotals(d) }))
       .filter(({ doc, status }) => {
         if (filter !== 'all' && status !== filter) return false
         if (!q) return true
@@ -262,12 +251,15 @@ export function DocumentList({ type, docs, onOpen, onNew, onOpenSettings }) {
       </div>}
       {groups.map(g => <div key={g.year}>
         <div className="year-head"><span>{g.year}</span><span>{money(g.total)}</span></div>
-        {g.rows.map(({ doc, status, totals, badge }) => (
+        {g.rows.map(({ doc, status, totals }) => (
           <button className="docrow" key={doc.id} onClick={() => onOpen(doc)}>
             <div className="docinfo">
               <b>{doc.client?.name || 'Sans client'}</b>
-              <small>{doc.number}{doc.siteAddress ? ` — ${firstLine(doc.siteAddress)}` : ''}</small>
-              <span className={`badge ${badge.tone}`}>{badge.label}</span>
+              <small className="docmeta">
+                {doc.number}{doc.siteAddress ? ` — ${firstLine(doc.siteAddress)}` : ''}
+                {doc.docType === 'invoice' &&
+                  <span className={`stage ${invoiceStage(doc)}`}>{INVOICE_STAGES[invoiceStage(doc)]}</span>}
+              </small>
             </div>
             <div className="docamount">
               <b>{money(totals.total)}</b>

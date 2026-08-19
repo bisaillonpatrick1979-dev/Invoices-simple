@@ -1058,26 +1058,6 @@ button.primary.wide { width: 100%; margin-top: 12px; }
 .assistant-overlay .chat-bar { bottom: env(safe-area-inset-bottom); }
 .assistant-overlay .chat-body { padding-bottom: 130px; }
 
-/* ===== Pastille d'état d'un document ===== */
-.badge {
-  align-self: flex-start;
-  margin-top: 5px;
-  padding: 2px 9px;
-  border-radius: 999px;
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: .2px;
-  line-height: 1.6;
-}
-/* payée, ou devis fermé : c'est fini */
-.badge.done { background: #e6f4ea; color: #1e7c3a; }
-/* envoyée, l'argent n'est pas rentré */
-.badge.wait { background: #fff4e0; color: #a05a00; }
-/* pas encore envoyée */
-.badge.draft { background: #eef0f4; color: #5f6673; }
-/* devis ouvert */
-.badge.open { background: #e8ecff; color: var(--blue); }
-
 /* ===== Copie de sauvegarde ===== */
 .counts {
   display: flex;
@@ -1175,3 +1155,19 @@ button.primary.wide { width: 100%; margin-top: 12px; }
   /* sans ça, certains navigateurs impriment le filigrane en blanc */
   .watermark img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* État d'une facture dans la liste : en cours / envoyée / payée */
+.docmeta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.stage { flex: none; }
+.stage {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  padding: 2px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.stage.draft { background: #fef3c7; color: #92400e; }
+.stage.sent { background: #e0e7ff; color: var(--blue); }
+.stage.paid { background: #dcfce7; color: var(--green); }
