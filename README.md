@@ -99,25 +99,27 @@ Dans le menu **Envoyer** :
 | **Envoyer le PDF** (fichier attaché) | aucun |
 | **Courriel** / **Texto** (texte seul) | aucun |
 
-Le client reçoit une adresse du genre `invoices-simple.vercel.app/f/wkLA8tdPctk…` : il touche, la facture s'ouvre dans son navigateur, avec un bouton **Télécharger le PDF**. Pas de compte, pas d'application à installer.
+Le destinataire reçoit une adresse du genre `invoices-simple.vercel.app/f/wkLA8tdPctk…` : il touche, la facture s'ouvre dans son navigateur, avec un bouton **Télécharger le PDF**. Pas de compte, pas d'application à installer.
+
+**Un lien par destinataire.** Le courriel part à l'administration, le texto au contremaître : ce sont deux liens différents pour la même facture. C'est ce qui permet à l'app de dire **lequel des deux a lu** — « courriel lu il y a 3 min, texto pas encore ouvert » — plutôt qu'un vague « quelqu'un a ouvert ». Chaque lien porte l'adresse ou le numéro auquel il est parti, et se coupe séparément.
 
 Ce que l'app affiche ensuite :
 
-- une pastille **Vue il y a 4 min** sur la rangée de la facture, à côté de l'état ;
-- un **avis en haut de l'écran** au moment où l'ouverture est découverte — « Marc Tremblay a ouvert INVOICE0012 » — qui s'efface tout seul après quelques secondes ; une touche ouvre la facture ;
-- une carte **Lien de facture** dans l'éditeur : nombre d'ouvertures, date de la dernière, l'adresse du lien, et les boutons **Copier**, **Voir la page**, **Couper**.
+- une pastille par canal sur la rangée de la facture — ✉ **lu il y a 3 min**, 💬 **lu il y a 1 min** — à côté de l'état ;
+- un **avis sous la barre du haut** au moment où l'ouverture est découverte — « Chantier Nord inc. a ouvert le courriel — INVOICE0012 », avec l'adresse en dessous — qui s'efface tout seul après quelques secondes ; une touche ouvre la facture ;
+- une carte **Liens de facture** dans l'éditeur : une ligne par destinataire, avec le nombre d'ouvertures, la date de la dernière, et les boutons **Copier**, **Voir la page**, **Couper**.
 
 Trois précisions qui comptent :
 
 - **« Pas encore ouverte »** est une information, pas une panne : c'est ce qui te dit qui relancer, et ça enlève l'argument « je ne l'ai jamais reçue ».
 - Après une correction, une ouverture d'avant compte pour ce qu'elle vaut : la pastille devient **Vue avant correction**, et la carte précise que le client n'a pas encore vu la nouvelle révision.
-- **Un seul lien par facture**, gardé d'une version à l'autre. Le lien déjà envoyé montre toujours la version à jour — c'est ce qui fait qu'une facture corrigée remplace vraiment la précédente. **Couper** le lien ferme la page pour de bon ; **Réactiver** la rouvre.
+- Chaque lien est **gardé d'une version à l'autre** : celui que le destinataire a déjà reçu montre toujours la version à jour — c'est ce qui fait qu'une facture corrigée remplace vraiment la précédente. **Couper** un lien ferme sa page pour de bon ; **Réactiver** la rouvre. Couper le courriel ne coupe pas le texto.
 
 Les ouvertures se rafraîchissent à chaque synchronisation et chaque fois que tu reviens dans l'app. Il faut donc être connecté à la sauvegarde infonuagique (Réglages) pour créer un lien.
 
 ### Ce qui est stocké, et ce qui ne l'est pas
 
-Le lien vit dans le projet Supabase de l'app, dans deux tables : `shares` (la facture figée telle que le client la voit, plus le nom, le logo et le filigrane de l'entreprise) et `share_views` (une ligne par ouverture). Les photos de chantier, la clé de l'IA et les réglages internes **ne partent pas**.
+Les liens vivent dans le projet Supabase de l'app, dans deux tables : `shares` (une ligne par destinataire — la facture figée telle qu'il la voit, plus le nom, le logo et le filigrane de l'entreprise) et `share_views` (une ligne par ouverture). Les photos de chantier, la clé de l'IA et les réglages internes **ne partent pas**.
 
 Personne ne peut lister les factures partagées : la page publique passe par une fonction qui ne répond qu'au jeton exact — 22 caractères tirés au hasard —, jamais par la table. Le tableau de bord Supabase signale ces deux fonctions comme « exécutables sans compte » : c'est voulu, c'est exactement ce qui permet à un client de voir sa facture sans avoir à se créer un compte.
 

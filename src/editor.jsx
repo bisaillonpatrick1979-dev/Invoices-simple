@@ -10,7 +10,10 @@ import {
   today, emptyClient, withEvent, UNITS
 } from './store.js'
 import { canSharePdf, downloadPdf, sharePdf } from './pdf.js'
-import { agoFr, fmtViewedAt, publishShare, restoreShare, revokeShare, seenCurrent, shareUrl } from './share.js'
+import {
+  agoFr, channelLabel, channelsOf, fmtViewedAt, publishShare, restoreShare,
+  revokeShare, seenCurrent, shareUrl
+} from './share.js'
 import { AppBar, NumField } from './lists.jsx'
 import { InvoicePaper } from './paper.jsx'
 
@@ -122,15 +125,16 @@ export function DocumentEditor({ doc, settings, clients, items, share, cloudUser
     }
   }
 
-  // Le lien de facture : c'est lui qui permet de savoir que le client a
-  // ouvert. Un seul lien par facture, mis à jour à chaque envoi — celui que le
-  // client a déjà reçu montre donc toujours la bonne version.
-  const link = doc.shareToken || share?.token ? shareUrl(doc.shareToken || share.token) : ''
+  // Les liens de facture : un par destinataire. Le courriel part à
+  // l'administration, le texto au contremaître — deux liens, donc l'app peut
+  // dire lequel des deux a été ouvert. Chaque lien est mis à jour à chaque
+  // envoi : celui que le client a déjà reçu montre toujours la bonne version.
+  const chans = channelsOf(share)
 
-  const withLink = async (label, markAsSent) => {
+  const withLink = async (channel, dest, label, markAsSent) => {
     const next = markAsSent ? withEvent(markSent(doc), sendLabel(label)) : doc
-    const { token, url } = await publishShare(next, settings)
-    persist({ ...next, shareToken: token })
+    const { token, url } = await publishShare(next, settings, channel, dest)
+    persist({ ...next, shareTokens: { ...(next.shareTokens || {}), [channel]: token } })
     onShareChange?.()
     return { url, doc: next }
   }
@@ -146,7 +150,13 @@ export function DocumentEditor({ doc, settings, clients, items, share, cloudUser
     setLinkBusy(via)
     setLinkNote('')
     try {
-      const { url, doc: sent } = await withLink(via === 'sms' ? 'Lien envoyé par texto' : 'Lien envoyé par courriel', true)
+      const dest = via === 'sms' ? doc.client.phone.trim() : doc.client.email.trim()
+      const { url, doc: sent } = await withLink(
+        via === 'sms' ? 'sms' : 'mail',
+        dest,
+        via === 'sms' ? `Lien envoyé par texto (${dest})` : `Lien envoyé par courriel (${dest})`,
+        true
+      )
       const totalsNow = calcTotals(sent)
       if (via === 'sms') {
         window.location.href = `sms:${sent.client.phone}?&body=${encodeURIComponent(buildSmsBody(settings, sent, totalsNow, url))}`
@@ -167,7 +177,7 @@ export function DocumentEditor({ doc, settings, clients, items, share, cloudUser
     setLinkNote('')
     try {
       // copier n'est pas envoyer : l'état de la facture ne bouge pas
-      const { url } = await withLink('Lien de facture créé', false)
+      const { url } = await withLink('lien', '', 'Lien de facture créé', false)
       await navigator.clipboard.writeText(url)
       setLinkNote('Lien copié — colle-le où tu veux.')
     } catch (e) {
@@ -177,24 +187,33 @@ export function DocumentEditor({ doc, settings, clients, items, share, cloudUser
     }
   }
 
-  const cutLink = async () => {
-    if (!link) return
-    setLinkBusy('cut')
+  const cutLink = async c => {
+    setLinkBusy('cut' + c.channel)
     setLinkNote('')
     try {
-      if (share?.revoked) {
-        await restoreShare(doc.shareToken || share.token)
-        setLinkNote('Lien réactivé.')
+      const name = channelLabel(c.channel).toLowerCase()
+      if (c.revoked) {
+        await restoreShare(c.token)
+        setLinkNote(`Lien ${name} réactivé.`)
       } else {
-        await revokeShare(doc.shareToken || share.token)
-        setLinkNote('Lien coupé : le client ne voit plus la facture.')
+        await revokeShare(c.token)
+        setLinkNote(`Lien ${name} coupé : ce destinataire ne voit plus la facture.`)
       }
-      persist(withEvent(doc, share?.revoked ? 'Lien réactivé' : 'Lien coupé'))
+      persist(withEvent(doc, `${c.revoked ? 'Lien réactivé' : 'Lien coupé'} — ${name}${c.label ? ` (${c.label})` : ''}`))
       onShareChange?.()
     } catch (e) {
       setShareError(String(e?.message || e))
     } finally {
       setLinkBusy('')
+    }
+  }
+
+  const copyOne = async c => {
+    try {
+      await navigator.clipboard.writeText(shareUrl(c.token))
+      setLinkNote(`Lien ${channelLabel(c.channel).toLowerCase()} copié.`)
+    } catch {
+      setLinkNote('Copie impossible : garde le lien affiché et recopie-le à la main.')
     }
   }
 
@@ -505,43 +524,44 @@ export function DocumentEditor({ doc, settings, clients, items, share, cloudUser
         </div>}
       </div>
 
-      {/* Le lien de facture, et ce qu'il rapporte : c'est la seule façon de
-          savoir que le client a ouvert. Un PDF attaché, lui, ne dit rien. */}
+      {/* Les liens de facture, un par destinataire, et ce qu'ils rapportent :
+          c'est la seule façon de savoir qui a ouvert. Un PDF attaché, lui, ne
+          dit jamais rien. */}
       {isInvoice && <div className="edit-card track">
         <div className="track-head">
           <Link2 size={17}/>
-          <b>Lien de facture</b>
-          {link && !share?.revoked && <span className={`track-badge ${share && share.views > 0 ? (seenCurrent(share) ? 'seen' : 'stale') : 'wait'}`}>
-            {!share || share.views === 0
-              ? 'Pas encore ouverte'
-              : seenCurrent(share) ? 'Vue' : 'Vue avant la correction'}
-          </span>}
-          {share?.revoked && <span className="track-badge cut">Coupé</span>}
+          <b>Liens de facture</b>
         </div>
 
-        {!link && <p className="hint small-note">
-          Envoie le lien plutôt que le fichier : la facture s'ouvre dans le navigateur du client,
-          et l'app te dit quand il l'a lue. {cloudUser ? '' : 'Il faut être connecté à la sauvegarde infonuagique (Réglages).'}
+        {chans.length === 0 && <p className="hint small-note">
+          Envoie le lien plutôt que le fichier : la facture s'ouvre dans le navigateur du destinataire,
+          et l'app te dit qui l'a lue. Le courriel et le texto ont chacun le leur, donc tu sais lequel
+          des deux a ouvert. {cloudUser ? '' : 'Il faut être connecté à la sauvegarde infonuagique (Réglages).'}
         </p>}
 
-        {link && <>
-          <p className="track-line">{share?.last
-            ? <>
-                <CheckCheck size={15}/> Ouverte {share.views} fois — dernière {agoFr(share.last.at)} ({fmtViewedAt(share.last.at)})
-              </>
-            : <><Eye size={15}/> Le client n'a pas encore ouvert le lien.</>}
+        {chans.map(c => <div className="track-chan" key={c.channel}>
+          <div className="track-chan-head">
+            {c.channel === 'mail' ? <Mail size={15}/> : c.channel === 'sms' ? <MessageSquare size={15}/> : <Link2 size={15}/>}
+            <b>{channelLabel(c.channel)}</b>
+            {c.label && <small>{c.label}</small>}
+            <span className={`track-badge ${c.revoked ? 'cut' : c.views > 0 ? (seenCurrent(c) ? 'seen' : 'stale') : 'wait'}`}>
+              {c.revoked ? 'Coupé' : c.views === 0 ? 'Pas encore ouvert' : seenCurrent(c) ? 'Lu' : 'Lu avant la correction'}
+            </span>
+          </div>
+          <p className="track-line">{c.last
+            ? <><CheckCheck size={15}/> Ouvert {c.views} fois — dernière {agoFr(c.last.at)} ({fmtViewedAt(c.last.at)})</>
+            : <><Eye size={15}/> Pas encore ouvert par ce destinataire.</>}
           </p>
-          {share?.last && !seenCurrent(share) &&
-            <p className="track-warn">La dernière ouverture date d'avant ta correction : le client n'a pas encore vu la révision {share.revision}.</p>}
-          <p className="track-url">{link}</p>
+          {c.last && !seenCurrent(c) &&
+            <p className="track-warn">Cette ouverture date d'avant ta correction : la révision {c.revision} n'a pas encore été vue.</p>}
           <div className="track-actions">
-            <button className="link-btn" onClick={copyLink} disabled={!!linkBusy}><Copy size={15}/> Copier</button>
-            <button className="link-btn" onClick={() => window.open(`${link}?apercu=1`, '_blank')}><Eye size={15}/> Voir la page</button>
-            <button className="link-btn danger" onClick={cutLink} disabled={!!linkBusy}>
-              {share?.revoked ? <><Link2 size={15}/> Réactiver</> : <><EyeOff size={15}/> Couper</>}
+            <button className="link-btn" onClick={() => copyOne(c)}><Copy size={15}/> Copier</button>
+            <button className="link-btn" onClick={() => window.open(`${shareUrl(c.token)}?apercu=1`, '_blank')}><Eye size={15}/> Voir la page</button>
+            <button className="link-btn danger" onClick={() => cutLink(c)} disabled={!!linkBusy}>
+              {c.revoked ? <><Link2 size={15}/> Réactiver</> : <><EyeOff size={15}/> Couper</>}
             </button>
           </div>
-        </>}
+        </div>)}
         {linkNote && <p className="track-note">{linkNote}</p>}
       </div>}
 

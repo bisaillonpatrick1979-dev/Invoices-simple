@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, Search, Settings as SettingsIcon, Inbox, X, Eye } from 'lucide-react'
+import { Plus, Search, Settings as SettingsIcon, Inbox, X, Link2, Mail, MessageSquare } from 'lucide-react'
 import {
   calcTotals, docStatus, fmtDate, INVOICE_STAGES, invoiceStage, lastPaymentDate,
   load, money, parseNum, save
 } from './store.js'
-import { agoFr, seenCurrent } from './share.js'
+import { agoFr, channelsOf, seenCurrent } from './share.js'
 
 export const FAB_SIZE = 58
 export const FAB_DEFAULT = { right: 18, bottom: 92 }
@@ -260,11 +260,16 @@ export function DocumentList({ type, docs, shares = {}, onOpen, onNew, onOpenSet
                 {doc.number}{doc.siteAddress ? ` — ${firstLine(doc.siteAddress)}` : ''}
                 {doc.docType === 'invoice' &&
                   <span className={`stage ${invoiceStage(doc)}`}>{INVOICE_STAGES[invoiceStage(doc)]}</span>}
-                {/* Le client a ouvert son lien : c'est la seule preuve qu'il
-                    a la facture sous les yeux. */}
-                {shares[doc.id]?.last && <span className={`stage view ${seenCurrent(shares[doc.id]) ? '' : 'old'}`}>
-                  <Eye size={12}/> {seenCurrent(shares[doc.id]) ? `Vue ${agoFr(shares[doc.id].last.at)}` : 'Vue avant correction'}
-                </span>}
+                {/* Un destinataire a ouvert son lien : c'est la seule preuve
+                    qu'il a la facture sous les yeux. Une pastille par canal —
+                    le courriel de l'administration et le texto du
+                    contremaître ne se lisent pas au même moment. */}
+                {channelsOf(shares[doc.id]).filter(c => c.last).map(c => (
+                  <span key={c.channel} className={`stage view ${seenCurrent(c) ? '' : 'old'}`}>
+                    {c.channel === 'mail' ? <Mail size={12}/> : c.channel === 'sms' ? <MessageSquare size={12}/> : <Link2 size={12}/>}
+                    {seenCurrent(c) ? `lu ${agoFr(c.last.at)}` : 'lu avant correction'}
+                  </span>
+                ))}
               </small>
             </div>
             <div className="docamount">

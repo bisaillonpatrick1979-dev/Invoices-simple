@@ -1215,7 +1215,12 @@ button.primary.wide { width: 100%; margin-top: 12px; }
 .stage.view.old { background: #fef3c7; color: #92400e; }
 .stage.view svg { flex: none; }
 
-.edit-card.track { padding: 12px 14px; display: grid; gap: 7px; }
+.edit-card.track { padding: 12px 14px; display: grid; gap: 10px; }
+.track-chan { display: grid; gap: 6px; padding-top: 9px; border-top: 1px solid #eef0f4; }
+.track-chan:first-of-type { border-top: 0; padding-top: 0; }
+.track-chan-head { display: flex; align-items: center; gap: 7px; font-size: 14px; }
+.track-chan-head svg { flex: none; color: var(--blue); }
+.track-chan-head small { color: #6b7280; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .track-head { display: flex; align-items: center; gap: 8px; font-size: 15px; }
 .track-head svg { color: var(--blue); flex: none; }
 .track-badge {

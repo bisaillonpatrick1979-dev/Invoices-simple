@@ -16,7 +16,7 @@ import { ComptaScreen, RapportsScreen, PaiementsScreen } from './compta.jsx'
 import { SettingsScreen } from './settings.jsx'
 import { AiFab, AssistantScreen } from './assistant.jsx'
 import { useCloudSync } from './cloudui.jsx'
-import { agoFr, lastSeenView, markViewsSeen, newViews, pullShareActivity, shareState } from './share.js'
+import { agoFr, CHANNELS, lastSeenView, markViewsSeen, newViews, pullShareActivity, shareState } from './share.js'
 import { SharedInvoice, shareTokenFromUrl } from './shared.jsx'
 import './styles.css'
 
@@ -113,10 +113,15 @@ function App() {
   }
 
   // L'avis s'efface tout seul : l'information reste sur la rangée de la
-  // facture (« Vue il y a 4 min ») et dans la carte de suivi, rien ne se perd.
+  // facture (« lu il y a 4 min ») et dans la carte de suivi, rien ne se perd.
+  // Il se place juste sous la barre du haut, mesurée à l'écran : au-dessus il
+  // avalerait la flèche de retour, en bas c'était le bouton « Envoyer ».
+  const [toastTop, setToastTop] = useState(108)
   useEffect(() => {
     if (!fresh.length) return
-    const t = setTimeout(dismissViews, 12000)
+    const bar = document.querySelector('.appbar')?.getBoundingClientRect().height
+    setToastTop((bar || 100) + 8)
+    const t = setTimeout(dismissViews, 9000)
     return () => clearTimeout(t)
   }, [fresh.length ? fresh[0].id : 0])
 
@@ -277,7 +282,7 @@ function App() {
 
       {/* Un client vient d'ouvrir sa facture : on le dit tout de suite, où
           qu'on soit dans l'app. Une touche ouvre la facture en question. */}
-      {fresh.length > 0 && <div className="view-toast no-print">
+      {fresh.length > 0 && <div className="view-toast no-print" style={{ top: toastTop }}>
         <button className="view-toast-main" onClick={() => {
           const first = fresh[0]
           const doc = docs.find(d => d.id === first.docId)
@@ -286,8 +291,8 @@ function App() {
         }}>
           <Eye size={20}/>
           <span>
-            <b>{fresh[0].client || 'Le client'} a ouvert {fresh[0].number}</b>
-            <small>{agoFr(fresh[0].at)}{fresh.length > 1 ? ` — et ${fresh.length - 1} autre${fresh.length > 2 ? 's' : ''}` : ''}</small>
+            <b>{fresh[0].client || 'Le client'} a ouvert {CHANNELS[fresh[0].channel]?.short || 'le lien'} — {fresh[0].number}</b>
+            <small>{fresh[0].label ? `${fresh[0].label} — ` : ''}{agoFr(fresh[0].at)}{fresh.length > 1 ? ` — et ${fresh.length - 1} autre${fresh.length > 2 ? 's' : ''}` : ''}</small>
           </span>
         </button>
         <button className="icon" onClick={dismissViews} aria-label="Fermer"><X size={18}/></button>
