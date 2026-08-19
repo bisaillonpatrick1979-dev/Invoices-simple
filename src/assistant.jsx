@@ -4,8 +4,8 @@ import {
   FileText, Package, Mail, Settings as SettingsIcon, Headphones, Paperclip
 } from 'lucide-react'
 import {
-  buildEmailBody, buildSmsBody, calcTotals, emptyClient, fileWeight, money,
-  newDocument, readDataFile, readImageFile, uid, withEvent
+  buildEmailBody, buildSmsBody, calcTotals, emptyClient, fileWeight, markSent,
+  money, newDocument, readDataFile, readImageFile, uid, withEvent
 } from './store.js'
 import { askAi, buildSystemPrompt, parseAction, splitDataUrl } from './ai.js'
 import { dictationSupported, speak, stopSpeaking, useDictation } from './voice.js'
@@ -277,7 +277,7 @@ export function AssistantScreen({
     const totals = calcTotals(doc)
     const withPdf = canSharePdf()
     const saved = onCreateDoc(withEvent(
-      { ...doc, status: 'sent' },
+      markSent(doc),
       withPdf ? 'PDF partagé (assistant)' : bySms ? 'Envoyée par texto (assistant)' : 'Envoyée par email (assistant)'
     ))
 

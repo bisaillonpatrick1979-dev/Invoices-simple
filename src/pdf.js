@@ -5,7 +5,7 @@
 // courriel avec la facture attachée demande le fichier en main. D'où ce
 // deuxième rendu, dessiné au trait, qui suit l'aperçu à l'écran.
 
-import { calcTotals, fmtDate, lineTotal, money } from './store.js'
+import { calcTotals, fmtDate, fmtStamp, lineTotal, money, revisionInfo } from './store.js'
 
 // jsPDF pèse plus que toute l'app réunie. Il n'est téléchargé qu'au premier
 // PDF demandé, pas au démarrage : sur un chantier, on ouvre l'app bien plus
@@ -140,6 +140,18 @@ export async function buildPdf(settings, doc) {
   y += LINE
   if (doc.dueDate) {
     text(`Échéance : ${fmtDate(doc.dueDate)}`, W - M, { size: 10, align: 'right' })
+    y += LINE
+  }
+  // Une facture corrigée porte sa correction sur elle : le client qui a les
+  // deux papiers doit voir tout de suite lequel compte.
+  const rev = revisionInfo(doc)
+  if (rev) {
+    y += 1
+    text(`RÉVISION ${rev.n}`, W - M, { bold: true, size: 10.5, align: 'right', color: [176, 42, 42] })
+    y += LINE
+    const when = fmtStamp(rev.replaces)
+    text(when ? `Remplace et annule la version du ${when}` : 'Remplace et annule la version précédente',
+      W - M, { size: 8.5, align: 'right', color: [140, 60, 55] })
     y += LINE
   }
   y = Math.max(y, rightY) + 2

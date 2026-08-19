@@ -1171,3 +1171,32 @@ button.primary.wide { width: 100%; margin-top: 12px; }
 .stage.draft { background: #fef3c7; color: #92400e; }
 .stage.sent { background: #e0e7ff; color: var(--blue); }
 .stage.paid { background: #dcfce7; color: var(--green); }
+/* rouge : celle-là demande une action, elle ne doit pas se confondre avec
+   les autres d'un coup d'oeil */
+.stage.revised { background: #fee2e2; color: #b02a2a; }
+
+
+/* Facture déjà partie, puis modifiée : le client a le mauvais montant en main.
+   Le bandeau le dit sans détour, en haut de l'éditeur. */
+.revised-banner {
+  margin: 12px 14px 0;
+  padding: 11px 13px;
+  border-radius: 12px;
+  border-left: 4px solid #b02a2a;
+  background: #fee2e2;
+  color: #7f1d1d;
+  display: grid;
+  gap: 4px;
+}
+.revised-banner b { font-size: 14px; }
+.revised-banner span { font-size: 12.5px; line-height: 1.45; }
+
+/* La même mention, sur le document imprimé */
+.pdf-revision {
+  margin-top: 5px !important;
+  font-weight: 700;
+  color: #b02a2a;
+  font-size: 12px;
+  max-width: 260px;
+  margin-left: auto;
+}

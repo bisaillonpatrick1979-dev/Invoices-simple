@@ -76,6 +76,7 @@ Sur la liste, chaque rangée porte le **chantier** à côté du numéro et une *
 |---|---|
 | **En cours** | pas encore envoyée au client |
 | **En attente de paiement** | envoyée, l'argent n'est pas rentré |
+| **Modifiée — à renvoyer** | envoyée, puis corrigée : le client a encore l'ancienne version |
 | **Payée** | soldée |
 | **Ouvert** / **Fermé** | pour les devis |
 
@@ -84,6 +85,20 @@ La recherche trouve aussi par chantier, pas seulement par client ou numéro.
 « Payée » l'emporte sur « En attente de paiement » : une facture réglée a forcément été envoyée, et c'est le paiement qu'on veut lire.
 
 L'état se met à jour tout seul quand tu envoies depuis l'app. Quand la facture part autrement — remise en main propre, envoyée depuis un autre appareil —, le bouton **Marquer comme envoyée** au bas de l'éditeur le dit à l'app. Il se défait aussi : **Remettre « en cours »** si tu t'es trompé. Chaque changement est noté dans l'historique de la facture.
+
+## Corriger une facture déjà envoyée
+
+Une fois le PDF ou le courriel chez le client, **rien ne peut le reprendre** : le fichier est sur son téléphone. Ce qui se fait en facturation, c'est de **remplacer** — la nouvelle version annule la précédente, et le document le dit lui-même.
+
+L'app compare ce qui est parti chez le client (montants, lignes, chantier, client, remarques) avec ce que la facture contient maintenant :
+
+- dès que tu touches à une facture déjà envoyée, la pastille passe à **Modifiée — à renvoyer** et un bandeau rouge s'ouvre en haut de l'éditeur : le client a encore l'ancien montant ;
+- le bouton d'envoi devient **Renvoyer**, et le bouton du bas **Marquer comme renvoyée** si le renvoi s'est fait hors de l'app ;
+- le PDF et l'aperçu portent alors, en rouge sous le numéro : **RÉVISION 2 — remplace et annule la version du 19/08/26 22 h 04** ;
+- le courriel et le texte préparés disent la même chose, pour que le client sache laquelle des deux factures compte ;
+- l'historique garde la trace de chaque version partie.
+
+Le numéro de facture ne change pas — c'est la même facture, à sa deuxième version. Un troisième envoi donne la révision 3, et ainsi de suite. Tant que le renvoi n'est pas fait, la pastille rouge reste : impossible d'oublier qu'un client se promène avec le mauvais montant.
 
 ## Rien ne se perd
 

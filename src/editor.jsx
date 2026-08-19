@@ -5,8 +5,9 @@ import {
   Share2, Download
 } from 'lucide-react'
 import {
-  buildEmailBody, buildSmsBody, calcTotals, docStatus, fmtDate, lineTotal, money,
-  newLine, parseNum, suggestItems, uid, today, emptyClient, withEvent, UNITS
+  buildEmailBody, buildSmsBody, calcTotals, docStatus, fmtDate, fmtStamp, isRevised,
+  lineTotal, markSent, money, newLine, parseNum, suggestItems, uid,
+  today, emptyClient, withEvent, UNITS
 } from './store.js'
 import { canSharePdf, downloadPdf, sharePdf } from './pdf.js'
 import { AppBar, NumField } from './lists.jsx'
@@ -79,9 +80,14 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
 
   const logAndSave = label => persist(withEvent(doc, label))
 
+  // Une facture corrigée qui repart n'est pas un deuxième envoi identique :
+  // l'historique doit dire laquelle des versions est partie.
+  const revised = isInvoice && isRevised(doc)
+  const sendLabel = what => (revised ? `${what} — révision ${Number(doc.revision || 1) + 1}` : what)
+
   const sendEmail = () => {
     if (!doc.client.email?.trim()) return alert('Ajoute une adresse email au client avant d’envoyer.')
-    const saved = persist(withEvent({ ...doc, status: 'sent' }, 'Envoyée par email'))
+    const saved = persist(withEvent(markSent(doc), sendLabel('Envoyée par email')))
     const subject = encodeURIComponent(`${saved.number} - ${settings.business.name}`)
     const body = encodeURIComponent(buildEmailBody(settings, saved, totals))
     window.location.href = `mailto:${saved.client.email}?subject=${subject}&body=${body}`
@@ -90,7 +96,7 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
 
   const sendSms = () => {
     if (!doc.client.phone?.trim()) return alert('Ajoute un numéro de téléphone au client avant d’envoyer par texto.')
-    const saved = persist(withEvent({ ...doc, status: 'sent' }, 'Envoyée par texto'))
+    const saved = persist(withEvent(markSent(doc), sendLabel('Envoyée par texto')))
     const body = encodeURIComponent(buildSmsBody(settings, saved, totals))
     window.location.href = `sms:${saved.client.phone}?&body=${body}`
     setSendOpen(false)
@@ -99,7 +105,7 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
   // Envoi du PDF en pièce jointe, par le partage du téléphone : une seule
   // touche pour choisir Messages, Gmail, ou les deux.
   const sharePdfTo = async () => {
-    const saved = persist(withEvent({ ...doc, status: 'sent' }, 'PDF partagé'))
+    const saved = persist(withEvent(markSent(doc), sendLabel('PDF partagé')))
     setSendOpen(false)
     try {
       await sharePdf(settings, saved, {
@@ -141,10 +147,13 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
   // envoyée depuis un autre appareil. Le bouton permet de le dire, et de
   // revenir en arrière si on s'est trompé.
   const toggleSent = () => {
-    const sent = doc.status === 'sent'
+    // Une facture corrigée est « envoyée » dans les données, mais ce n'est plus
+    // la bonne version : le bouton sert alors à confirmer le renvoi, pas à
+    // défaire l'envoi.
+    const sent = doc.status === 'sent' && !revised
     persist(withEvent(
-      { ...doc, status: sent ? 'draft' : 'sent' },
-      sent ? 'Remise en cours' : 'Marquée comme envoyée'
+      sent ? { ...doc, status: 'draft' } : markSent(doc),
+      sent ? 'Remise en cours' : sendLabel(revised ? 'Marquée comme renvoyée' : 'Marquée comme envoyée')
     ))
   }
 
@@ -228,6 +237,15 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
         {!isInvoice && !doc.closed && <button onClick={convert}>Convertir en facture</button>}
         <button className="danger" onClick={() => { if (confirm(`Supprimer ${doc.number} ?`)) { onDelete(); onClose() } }}>Supprimer</button>
       </div>
+    </div>}
+
+    {/* Le client a une version périmée entre les mains. Rien ne peut la lui
+        reprendre : ce qui l'annule, c'est la suivante — et il faut qu'elle
+        parte. Le bandeau reste tant que ce n'est pas fait. */}
+    {revised && view !== 'history' && <div className="revised-banner no-print">
+      <b>Version envoyée le {fmtStamp(doc.sentAt)} — modifiée depuis</b>
+      <span>Le client a encore l'ancien montant. Renvoie la facture : elle partira
+      en révision {Number(doc.revision || 1) + 1} et annulera la précédente, écrit noir sur blanc dessus.</span>
     </div>}
 
     {view === 'edit' && <div className="editor-body no-print">
@@ -411,7 +429,7 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
       {/* L'état se lit dans la liste : ces deux boutons sont ce qui le change
           à la main, quand l'envoi ou le paiement s'est fait hors de l'app. */}
       {isInvoice && status !== 'paid' && <button className="outline-btn" onClick={toggleSent}>
-        {doc.status === 'sent' ? 'Remettre « en cours »' : 'Marquer comme envoyée'}
+        {revised ? 'Marquer comme renvoyée' : doc.status === 'sent' ? 'Remettre « en cours »' : 'Marquer comme envoyée'}
       </button>}
       {isInvoice && totals.balance > 0.005 && totals.total > 0 &&
         <button className="outline-btn" onClick={markPaid}>Marquer comme payée</button>}
@@ -470,9 +488,9 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
       {view === 'preview'
         ? <div className="action-bar no-print">
             <button className="outline-btn with-icon" onClick={printPdf}><Printer size={18}/> Imprimer / PDF</button>
-            <button className="primary" onClick={() => setSendOpen(o => !o)}><Send size={18}/> Envoyer</button>
+            <button className="primary" onClick={() => setSendOpen(o => !o)}><Send size={18}/> {revised ? 'Renvoyer' : 'Envoyer'}</button>
           </div>
-        : <button className="send-fab no-print" onClick={() => setSendOpen(o => !o)}><Send size={19}/> Envoyer</button>}
+        : <button className="send-fab no-print" onClick={() => setSendOpen(o => !o)}><Send size={19}/> {revised ? 'Renvoyer' : 'Envoyer'}</button>}
     </>}
   </section>
 }

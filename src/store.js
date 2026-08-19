@@ -222,6 +222,10 @@ export const newDocument = (type, settings, docs) => ({
   payments: [],
   status: 'draft',
   closed: false,
+  revision: 1,
+  sentStamp: '',      // ce qui est parti chez le client, pour voir si ça a changé depuis
+  sentAt: '',
+  replacesAt: '',     // date de la version que celle-ci annule
   history: [{ id: uid(), at: new Date().toISOString(), label: type === 'invoice' ? 'Facture créée' : 'Devis créé' }],
   updatedAt: new Date().toISOString()
 })
@@ -304,7 +308,7 @@ export function buildEmailBody(settings, doc, totals) {
 `Bonjour ${doc.client.name || ''},
 
 Voici votre ${kind} ${doc.number}.
-${doc.siteAddress ? `\nTravaux au : ${doc.siteAddress}\n` : ''}
+${revisionNote(doc) ? `\n${revisionNote(doc)}. Merci de ne tenir compte que de celle-ci ; la précédente est annulée.\n` : ''}${doc.siteAddress ? `\nTravaux au : ${doc.siteAddress}\n` : ''}
 ${lineText || 'Détails à venir.'}
 
 Sous-total : ${money(totals.subtotal)}
@@ -328,6 +332,9 @@ export const buildSmsBody = (settings, doc, totals) => {
   return [
     `Bonjour ${doc.client.name || ''},`.trim(),
     `votre ${kind} ${doc.number} de ${money(totals.total)} est prête.`,
+    // Dans un texto, court vaut mieux que complet : le PDF joint porte le
+    // détail de ce qui est annulé.
+    revisionInfo(doc) ? `Révision ${revisionInfo(doc).n} : elle annule et remplace l'envoi précédent.` : '',
     doc.siteAddress ? `Travaux au ${doc.siteAddress}.` : '',
     [b.name, b.phone].filter(Boolean).join(' — ')
   ].filter(Boolean).join(' ')
@@ -343,8 +350,74 @@ export function docStatus(doc) {
 // Où en est une facture, du point de vue de l'utilisateur : d'abord payée,
 // sinon envoyée, sinon encore en chantier. L'ordre compte — une facture payée
 // a forcément été envoyée, et c'est « payée » qu'on veut lire.
+// Ce que le client voit sur la facture. Sert d'empreinte : si ça change après
+// l'envoi, c'est que le client n'a plus la bonne version entre les mains.
+// Le reste (photos internes, historique, signature) ne compte pas.
+const clientFacing = doc => JSON.stringify({
+  number: doc.number,
+  date: doc.date,
+  dueDate: doc.dueDate,
+  client: doc.client,
+  siteAddress: doc.siteAddress,
+  lines: (doc.lines || []).map(l => [l.description, l.qty, l.unit, l.rate, l.taxable !== false]),
+  chargeTax: doc.chargeTax,
+  taxRate: doc.taxRate,
+  discountType: doc.discountType,
+  discountValue: doc.discountValue,
+  notes: doc.notes,
+  paymentInfo: doc.paymentInfo
+})
+
+// Une facture partie, puis retouchée : le client a une version périmée.
+export const isRevised = doc =>
+  doc.status === 'sent' && !!doc.sentStamp && clientFacing(doc) !== doc.sentStamp
+
+// À l'envoi : on retient ce qui est parti, et on numérote la révision. Un
+// deuxième envoi après correction devient la révision 2.
+export function markSent(doc) {
+  const again = !!doc.sentStamp && clientFacing(doc) !== doc.sentStamp
+  return {
+    ...doc,
+    status: 'sent',
+    sentStamp: clientFacing(doc),
+    sentAt: new Date().toISOString(),
+    // la version d'avant reste inscrite sur le PDF : c'est elle que la
+    // nouvelle annule
+    replacesAt: again ? doc.sentAt || '' : doc.replacesAt || '',
+    revision: again ? Number(doc.revision || 1) + 1 : Number(doc.revision || 1)
+  }
+}
+
+// Ce qui doit être écrit sur le document quand il remplace un envoi précédent.
+// La révision « en attente » compte déjà : dès que la facture envoyée est
+// retouchée, l'aperçu et le PDF annoncent la version qui va partir, sinon on
+// enverrait un papier qui se prétend encore la première version.
+export function revisionInfo(doc) {
+  const pending = isRevised(doc)
+  const n = Number(doc.revision || 1) + (pending ? 1 : 0)
+  if (n < 2) return null
+  return { n, replaces: pending ? (doc.sentAt || '') : (doc.replacesAt || '') }
+}
+
+// « 19/08/2026 14 h 32 » — l'heure compte : deux versions peuvent partir le
+// même jour.
+export const fmtStamp = iso => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleString('fr-CA', { dateStyle: 'short', timeStyle: 'short' })
+}
+
+// La ligne imprimée sur la facture, en toutes lettres.
+export function revisionNote(doc) {
+  const r = revisionInfo(doc)
+  if (!r) return ''
+  const when = fmtStamp(r.replaces)
+  return `Révision ${r.n} — remplace et annule la version${when ? ` du ${when}` : ' précédente'}`
+}
+
 export function invoiceStage(doc) {
   if (docStatus(doc) === 'paid') return 'paid'
+  if (isRevised(doc)) return 'revised'
   return doc.status === 'sent' ? 'sent' : 'draft'
 }
 
@@ -352,6 +425,7 @@ export const INVOICE_STAGES = {
   draft: 'En cours',
   // « Envoyée » ne dit pas ce qui manque encore : c'est l'argent qu'on attend
   sent: 'En attente de paiement',
+  revised: 'Modifiée — à renvoyer',
   paid: 'Payée'
 }
 

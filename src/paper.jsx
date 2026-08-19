@@ -1,6 +1,6 @@
 import React from 'react'
 import { Printer, X } from 'lucide-react'
-import { calcTotals, defaultWatermark, fmtDate, lineTotal, money } from './store.js'
+import { calcTotals, defaultWatermark, fmtDate, lineTotal, money, revisionNote } from './store.js'
 
 // Aperçu plein écran d'un document, avec bouton d'impression / PDF
 export function PaperPreview({ settings, doc, title = 'Aperçu du PDF', note, onClose }) {
@@ -68,6 +68,9 @@ export function InvoicePaper({ settings, doc, totals }) {
         <p><b>No :</b> {doc.number}</p>
         <p><b>Date :</b> {fmtDate(doc.date)}</p>
         {doc.dueDate && <p><b>Échéance :</b> {fmtDate(doc.dueDate)}</p>}
+        {/* Une facture corrigée doit le dire elle-même : c'est elle qui annule
+            celle que le client a déjà. */}
+        {revisionNote(doc) && <p className="pdf-revision">{revisionNote(doc)}</p>}
       </div>
     </header>
 
