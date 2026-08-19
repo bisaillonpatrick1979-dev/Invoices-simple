@@ -81,6 +81,8 @@ Sur la liste, chaque rangée porte le **chantier** à côté du numéro et une *
 
 La recherche trouve aussi par chantier, pas seulement par client ou numéro.
 
+« Payée » l'emporte sur « En attente de paiement » : une facture réglée a forcément été envoyée, et c'est le paiement qu'on veut lire.
+
 L'état se met à jour tout seul quand tu envoies depuis l'app. Quand la facture part autrement — remise en main propre, envoyée depuis un autre appareil —, le bouton **Marquer comme envoyée** au bas de l'éditeur le dit à l'app. Il se défait aussi : **Remettre « en cours »** si tu t'es trompé. Chaque changement est noté dans l'historique de la facture.
 
 ## Rien ne se perd
@@ -92,18 +94,6 @@ L'état se met à jour tout seul quand tu envoies depuis l'app. Quand la facture
 - **Tu rouvres l'app, tu retombes sur la facture que tu étais en train de faire**, exactement où tu l'avais laissée. Une fois que tu en sors par la flèche, l'app s'ouvre normalement sur la liste.
 
 Deux garde-fous : une facture **encore vide** n'est pas gardée (elle encombrerait la liste et brûlerait un numéro pour rien), et l'enregistrement automatique **ne touche pas au catalogue de prix** — une description à moitié tapée n'a rien à faire dans ta liste de prix. Le catalogue n'apprend que sur un vrai enregistrement.
-
-## État de chaque facture dans la liste
-
-Chaque facture porte une pastille dans l'onglet **Factures**, pour voir d'un coup d'œil où elle en est :
-
-| Pastille | Quand |
-|---|---|
-| **En cours** | La facture est commencée mais jamais envoyée. |
-| **Envoyée** | Elle est partie au client (courriel, texto ou PDF partagé). |
-| **Payée** | Elle est réglée au complet — dès que les paiements couvrent le total, ou après « Marquer comme payée ». |
-
-« Payée » l'emporte sur « Envoyée » : une facture réglée a forcément été envoyée, et c'est le paiement qui compte.
 
 ## Catalogue d'articles (liste de prix)
 
