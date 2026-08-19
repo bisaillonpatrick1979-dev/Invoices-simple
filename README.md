@@ -86,6 +86,41 @@ La recherche trouve aussi par chantier, pas seulement par client ou numéro.
 
 L'état se met à jour tout seul quand tu envoies depuis l'app. Quand la facture part autrement — remise en main propre, envoyée depuis un autre appareil —, le bouton **Marquer comme envoyée** au bas de l'éditeur le dit à l'app. Il se défait aussi : **Remettre « en cours »** si tu t'es trompé. Chaque changement est noté dans l'historique de la facture.
 
+## Savoir quand le client a ouvert la facture
+
+Un PDF attaché à un texto ne dit jamais rien : une fois le fichier chez le client, il ne parle plus. Un **lien**, lui, passe par une page — et une page qui s'ouvre, ça se sait.
+
+Dans le menu **Envoyer** :
+
+| Choix | Suivi |
+|---|---|
+| **Texto avec le lien** / **Courriel avec le lien** | oui — l'app dit quand le client ouvre |
+| **Copier le lien** | oui, mais la facture n'est pas marquée envoyée (copier n'est pas envoyer) |
+| **Envoyer le PDF** (fichier attaché) | aucun |
+| **Courriel** / **Texto** (texte seul) | aucun |
+
+Le client reçoit une adresse du genre `invoices-simple.vercel.app/f/wkLA8tdPctk…` : il touche, la facture s'ouvre dans son navigateur, avec un bouton **Télécharger le PDF**. Pas de compte, pas d'application à installer.
+
+Ce que l'app affiche ensuite :
+
+- une pastille **Vue il y a 4 min** sur la rangée de la facture, à côté de l'état ;
+- un **avis en haut de l'écran** au moment où l'ouverture est découverte — « Marc Tremblay a ouvert INVOICE0012 » — qui s'efface tout seul après quelques secondes ; une touche ouvre la facture ;
+- une carte **Lien de facture** dans l'éditeur : nombre d'ouvertures, date de la dernière, l'adresse du lien, et les boutons **Copier**, **Voir la page**, **Couper**.
+
+Trois précisions qui comptent :
+
+- **« Pas encore ouverte »** est une information, pas une panne : c'est ce qui te dit qui relancer, et ça enlève l'argument « je ne l'ai jamais reçue ».
+- Après une correction, une ouverture d'avant compte pour ce qu'elle vaut : la pastille devient **Vue avant correction**, et la carte précise que le client n'a pas encore vu la nouvelle révision.
+- **Un seul lien par facture**, gardé d'une version à l'autre. Le lien déjà envoyé montre toujours la version à jour — c'est ce qui fait qu'une facture corrigée remplace vraiment la précédente. **Couper** le lien ferme la page pour de bon ; **Réactiver** la rouvre.
+
+Les ouvertures se rafraîchissent à chaque synchronisation et chaque fois que tu reviens dans l'app. Il faut donc être connecté à la sauvegarde infonuagique (Réglages) pour créer un lien.
+
+### Ce qui est stocké, et ce qui ne l'est pas
+
+Le lien vit dans le projet Supabase de l'app, dans deux tables : `shares` (la facture figée telle que le client la voit, plus le nom, le logo et le filigrane de l'entreprise) et `share_views` (une ligne par ouverture). Les photos de chantier, la clé de l'IA et les réglages internes **ne partent pas**.
+
+Personne ne peut lister les factures partagées : la page publique passe par une fonction qui ne répond qu'au jeton exact — 22 caractères tirés au hasard —, jamais par la table. Le tableau de bord Supabase signale ces deux fonctions comme « exécutables sans compte » : c'est voulu, c'est exactement ce qui permet à un client de voir sa facture sans avoir à se créer un compte.
+
 ## Corriger une facture déjà envoyée
 
 Une fois le PDF ou le courriel chez le client, **rien ne peut le reprendre** : le fichier est sur son téléphone. Ce qui se fait en facturation, c'est de **remplacer** — la nouvelle version annule la précédente, et le document le dit lui-même.

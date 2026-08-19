@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
   FileText, ClipboardList, Calculator, CreditCard, MoreHorizontal,
-  Users, Package, ReceiptText, BarChart3, Settings as SettingsIcon, X, Sparkles
+  Users, Package, ReceiptText, BarChart3, Settings as SettingsIcon, X, Sparkles, Eye
 } from 'lucide-react'
 import {
   load, save, emptySettings, hasDraftContent, mergeItemsFromLines, mergeSettings,
@@ -16,6 +16,8 @@ import { ComptaScreen, RapportsScreen, PaiementsScreen } from './compta.jsx'
 import { SettingsScreen } from './settings.jsx'
 import { AiFab, AssistantScreen } from './assistant.jsx'
 import { useCloudSync } from './cloudui.jsx'
+import { agoFr, lastSeenView, markViewsSeen, newViews, pullShareActivity, shareState } from './share.js'
+import { SharedInvoice, shareTokenFromUrl } from './shared.jsx'
 import './styles.css'
 
 // Une modification n'est pas envoyée tout de suite : sur un chantier, on
@@ -63,6 +65,10 @@ function App() {
   // on était en le fermant, depuis n'importe quel onglet.
   const [aiOpen, setAiOpen] = useState(false)
   const [aiBusy, setAiBusy] = useState(false)
+  // Liens de facture et ouvertures par le client : gardés en mémoire locale
+  // pour que la pastille « Vue » soit là même sans réseau.
+  const [shares, setShares] = useState(shareState)
+  const [seenView, setSeenView] = useState(lastSeenView)
 
   useEffect(() => save('is_settings', settings), [settings])
   useEffect(() => save('is_clients', clients), [clients])
@@ -81,6 +87,38 @@ function App() {
   }
 
   const cloud = useCloudSync({ settings, clients, items, expenses, docs }, applyCloud)
+
+  // Qui a ouvert sa facture ? On le redemande après chaque synchro, et au
+  // retour sur l'app : c'est là qu'on apprend qu'un client a lu.
+  const refreshShares = () => {
+    pullShareActivity().then(s => s && setShares(s)).catch(() => { /* hors ligne : on garde ce qu'on sait */ })
+  }
+
+  useEffect(() => {
+    if (!cloud.user) return
+    refreshShares()
+  }, [cloud.user?.id, cloud.state.at])
+
+  useEffect(() => {
+    const onShow = () => { if (document.visibilityState === 'visible' && cloud.user) refreshShares() }
+    document.addEventListener('visibilitychange', onShow)
+    return () => document.removeEventListener('visibilitychange', onShow)
+  }, [cloud.user?.id])
+
+  const fresh = newViews(shares, docs, seenView)
+  const dismissViews = () => {
+    const top = Math.max(...fresh.map(v => Number(v.id)), seenView)
+    markViewsSeen(top)
+    setSeenView(top)
+  }
+
+  // L'avis s'efface tout seul : l'information reste sur la rangée de la
+  // facture (« Vue il y a 4 min ») et dans la carte de suivi, rien ne se perd.
+  useEffect(() => {
+    if (!fresh.length) return
+    const t = setTimeout(dismissViews, 12000)
+    return () => clearTimeout(t)
+  }, [fresh.length ? fresh[0].id : 0])
 
   const touch = () => setDirty(n => n + 1)
   // Les écrans de listes reçoivent le vrai setter : on l'enveloppe pour savoir
@@ -205,12 +243,15 @@ function App() {
           setTab('factures')
           setEditing(stored)
         }}
+        share={shares[editing.id] || null}
+        onShareChange={() => refreshShares()}
+        cloudUser={cloud.user}
         onOpenSettings={() => { setEditing(null); setTab('settings') }}
         onClose={() => setEditing(null)}
       />
     : <>
-        {tab === 'factures' && <DocumentList type="invoice" docs={docs} onOpen={setEditing} onNew={() => createDoc('invoice')} onOpenSettings={() => setTab('settings')}/>}
-        {tab === 'devis' && <DocumentList type="estimate" docs={docs} onOpen={setEditing} onNew={() => createDoc('estimate')} onOpenSettings={() => setTab('settings')}/>}
+        {tab === 'factures' && <DocumentList type="invoice" docs={docs} shares={shares} onOpen={setEditing} onNew={() => createDoc('invoice')} onOpenSettings={() => setTab('settings')}/>}
+        {tab === 'devis' && <DocumentList type="estimate" docs={docs} shares={shares} onOpen={setEditing} onNew={() => createDoc('estimate')} onOpenSettings={() => setTab('settings')}/>}
         {tab === 'compta' && <ComptaScreen docs={docs} expenses={expenses} onOpenSettings={() => setTab('settings')}/>}
         {tab === 'paiements' && <PaiementsScreen onOpenSettings={() => setTab('settings')}/>}
         {tab === 'clients' && <ClientsScreen clients={clients} setClients={tracked(setClients)} onBack={() => setTab('factures')}/>}
@@ -233,6 +274,24 @@ function App() {
   return (
     <div className="app">
       <div className="phone">{screen}</div>
+
+      {/* Un client vient d'ouvrir sa facture : on le dit tout de suite, où
+          qu'on soit dans l'app. Une touche ouvre la facture en question. */}
+      {fresh.length > 0 && <div className="view-toast no-print">
+        <button className="view-toast-main" onClick={() => {
+          const first = fresh[0]
+          const doc = docs.find(d => d.id === first.docId)
+          dismissViews()
+          if (doc) { setPlusOpen(false); setAiOpen(false); setTab(doc.docType === 'invoice' ? 'factures' : 'devis'); setEditing(doc) }
+        }}>
+          <Eye size={20}/>
+          <span>
+            <b>{fresh[0].client || 'Le client'} a ouvert {fresh[0].number}</b>
+            <small>{agoFr(fresh[0].at)}{fresh.length > 1 ? ` — et ${fresh.length - 1} autre${fresh.length > 2 ? 's' : ''}` : ''}</small>
+          </span>
+        </button>
+        <button className="icon" onClick={dismissViews} aria-label="Fermer"><X size={18}/></button>
+      </div>}
 
       {/* Sur tous les onglets et jusque dans l'éditeur : l'assistant est à une
           touche, sans perdre l'écran en cours. */}
@@ -294,4 +353,12 @@ function App() {
   )
 }
 
-createRoot(document.getElementById('root')).render(<App />)
+// Un lien de facture n'ouvre pas l'application : il ouvre la facture, et
+// rien d'autre. « ?apercu=1 » sert au propriétaire à vérifier son lien sans
+// que sa propre visite compte comme une ouverture du client.
+const shareToken = shareTokenFromUrl()
+const ownerPreview = new URLSearchParams(location.search).get('apercu') === '1'
+
+createRoot(document.getElementById('root')).render(
+  shareToken ? <SharedInvoice token={shareToken} log={!ownerPreview}/> : <App />
+)

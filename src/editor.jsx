@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft, MoreVertical, ChevronRight, Send, Paperclip, Trash2,
   Mail, MessageSquare, Printer, Clock, X, Maximize2, PenLine, Eye, MapPin,
-  Share2, Download
+  Share2, Download, Link2, Copy, EyeOff, CheckCheck
 } from 'lucide-react'
 import {
   buildEmailBody, buildSmsBody, calcTotals, docStatus, fmtDate, fmtStamp, isRevised,
@@ -10,6 +10,7 @@ import {
   today, emptyClient, withEvent, UNITS
 } from './store.js'
 import { canSharePdf, downloadPdf, sharePdf } from './pdf.js'
+import { agoFr, fmtViewedAt, publishShare, restoreShare, revokeShare, seenCurrent, shareUrl } from './share.js'
 import { AppBar, NumField } from './lists.jsx'
 import { InvoicePaper } from './paper.jsx'
 
@@ -55,7 +56,7 @@ function Row({ children, onClick, chevron, bold, className = '' }) {
   </Tag>
 }
 
-export function DocumentEditor({ doc, settings, clients, items, onChange, onSave, onDelete, onConvert, onSaveClient, onSaveItem, onOpenSettings, onClose }) {
+export function DocumentEditor({ doc, settings, clients, items, share, cloudUser, onShareChange, onChange, onSave, onDelete, onConvert, onSaveClient, onSaveItem, onOpenSettings, onClose }) {
   const [view, setView] = useState('edit')
   const [sendOpen, setSendOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -66,6 +67,8 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
   // ordinateur, c'est l'enregistrement du PDF qui prend le relais.
   const [shareable] = useState(canSharePdf)
   const [payOpen, setPayOpen] = useState(false)
+  const [linkBusy, setLinkBusy] = useState('')
+  const [linkNote, setLinkNote] = useState('')
   const [sigOpen, setSigOpen] = useState(false)
   const totals = calcTotals(doc)
   const status = docStatus(doc)
@@ -116,6 +119,82 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
       // Annuler le partage n'est pas une panne : on ne dit rien.
       if (e?.name === 'AbortError') return
       setShareError("Ce navigateur n'a pas voulu partager le fichier. Enregistre le PDF, puis joins-le à ton message.")
+    }
+  }
+
+  // Le lien de facture : c'est lui qui permet de savoir que le client a
+  // ouvert. Un seul lien par facture, mis à jour à chaque envoi — celui que le
+  // client a déjà reçu montre donc toujours la bonne version.
+  const link = doc.shareToken || share?.token ? shareUrl(doc.shareToken || share.token) : ''
+
+  const withLink = async (label, markAsSent) => {
+    const next = markAsSent ? withEvent(markSent(doc), sendLabel(label)) : doc
+    const { token, url } = await publishShare(next, settings)
+    persist({ ...next, shareToken: token })
+    onShareChange?.()
+    return { url, doc: next }
+  }
+
+  const sendLink = async via => {
+    // On vérifie avant de publier : rien ne doit changer d'état si le message
+    // ne peut même pas partir.
+    if (via === 'sms' && !doc.client.phone?.trim())
+      return setShareError('Ajoute un numéro de téléphone au client avant d’envoyer par texto.')
+    if (via === 'mail' && !doc.client.email?.trim())
+      return setShareError('Ajoute une adresse email au client avant d’envoyer.')
+    setSendOpen(false)
+    setLinkBusy(via)
+    setLinkNote('')
+    try {
+      const { url, doc: sent } = await withLink(via === 'sms' ? 'Lien envoyé par texto' : 'Lien envoyé par courriel', true)
+      const totalsNow = calcTotals(sent)
+      if (via === 'sms') {
+        window.location.href = `sms:${sent.client.phone}?&body=${encodeURIComponent(buildSmsBody(settings, sent, totalsNow, url))}`
+      } else {
+        const subject = encodeURIComponent(`${sent.number} - ${settings.business.name}`)
+        window.location.href = `mailto:${sent.client.email}?subject=${subject}&body=${encodeURIComponent(buildEmailBody(settings, sent, totalsNow, url))}`
+      }
+    } catch (e) {
+      setShareError(String(e?.message || e))
+    } finally {
+      setLinkBusy('')
+    }
+  }
+
+  const copyLink = async () => {
+    setSendOpen(false)
+    setLinkBusy('copy')
+    setLinkNote('')
+    try {
+      // copier n'est pas envoyer : l'état de la facture ne bouge pas
+      const { url } = await withLink('Lien de facture créé', false)
+      await navigator.clipboard.writeText(url)
+      setLinkNote('Lien copié — colle-le où tu veux.')
+    } catch (e) {
+      setShareError(String(e?.message || e))
+    } finally {
+      setLinkBusy('')
+    }
+  }
+
+  const cutLink = async () => {
+    if (!link) return
+    setLinkBusy('cut')
+    setLinkNote('')
+    try {
+      if (share?.revoked) {
+        await restoreShare(doc.shareToken || share.token)
+        setLinkNote('Lien réactivé.')
+      } else {
+        await revokeShare(doc.shareToken || share.token)
+        setLinkNote('Lien coupé : le client ne voit plus la facture.')
+      }
+      persist(withEvent(doc, share?.revoked ? 'Lien réactivé' : 'Lien coupé'))
+      onShareChange?.()
+    } catch (e) {
+      setShareError(String(e?.message || e))
+    } finally {
+      setLinkBusy('')
     }
   }
 
@@ -426,6 +505,46 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
         </div>}
       </div>
 
+      {/* Le lien de facture, et ce qu'il rapporte : c'est la seule façon de
+          savoir que le client a ouvert. Un PDF attaché, lui, ne dit rien. */}
+      {isInvoice && <div className="edit-card track">
+        <div className="track-head">
+          <Link2 size={17}/>
+          <b>Lien de facture</b>
+          {link && !share?.revoked && <span className={`track-badge ${share && share.views > 0 ? (seenCurrent(share) ? 'seen' : 'stale') : 'wait'}`}>
+            {!share || share.views === 0
+              ? 'Pas encore ouverte'
+              : seenCurrent(share) ? 'Vue' : 'Vue avant la correction'}
+          </span>}
+          {share?.revoked && <span className="track-badge cut">Coupé</span>}
+        </div>
+
+        {!link && <p className="hint small-note">
+          Envoie le lien plutôt que le fichier : la facture s'ouvre dans le navigateur du client,
+          et l'app te dit quand il l'a lue. {cloudUser ? '' : 'Il faut être connecté à la sauvegarde infonuagique (Réglages).'}
+        </p>}
+
+        {link && <>
+          <p className="track-line">{share?.last
+            ? <>
+                <CheckCheck size={15}/> Ouverte {share.views} fois — dernière {agoFr(share.last.at)} ({fmtViewedAt(share.last.at)})
+              </>
+            : <><Eye size={15}/> Le client n'a pas encore ouvert le lien.</>}
+          </p>
+          {share?.last && !seenCurrent(share) &&
+            <p className="track-warn">La dernière ouverture date d'avant ta correction : le client n'a pas encore vu la révision {share.revision}.</p>}
+          <p className="track-url">{link}</p>
+          <div className="track-actions">
+            <button className="link-btn" onClick={copyLink} disabled={!!linkBusy}><Copy size={15}/> Copier</button>
+            <button className="link-btn" onClick={() => window.open(`${link}?apercu=1`, '_blank')}><Eye size={15}/> Voir la page</button>
+            <button className="link-btn danger" onClick={cutLink} disabled={!!linkBusy}>
+              {share?.revoked ? <><Link2 size={15}/> Réactiver</> : <><EyeOff size={15}/> Couper</>}
+            </button>
+          </div>
+        </>}
+        {linkNote && <p className="track-note">{linkNote}</p>}
+      </div>}
+
       {/* L'état se lit dans la liste : ces deux boutons sont ce qui le change
           à la main, quand l'envoi ou le paiement s'est fait hors de l'app. */}
       {isInvoice && status !== 'paid' && <button className="outline-btn" onClick={toggleSent}>
@@ -467,12 +586,22 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
           {/* Le partage natif est le seul chemin qui attache vraiment le PDF :
               il ouvre Messages, Gmail, WhatsApp… au choix, et permet d'envoyer
               aux deux. Un lien sms: ou mailto: ne transporte que du texte. */}
+          {/* Le lien d'abord : c'est le seul envoi qui revient dire au patron
+              que le client a ouvert la facture. */}
+          <button onClick={() => sendLink('sms')} disabled={!!linkBusy}>
+            <MessageSquare size={19}/> <span>Texto avec le lien<small>tu sauras quand il l'ouvre</small></span>
+          </button>
+          <button onClick={() => sendLink('mail')} disabled={!!linkBusy}>
+            <Mail size={19}/> <span>Courriel avec le lien<small>tu sauras quand il l'ouvre</small></span>
+          </button>
+          <button onClick={copyLink} disabled={!!linkBusy}><Copy size={19}/> Copier le lien</button>
+          <div className="send-menu-sep"/>
           {shareable && <>
-            <button onClick={sharePdfTo}><Share2 size={19}/> <span>Envoyer le PDF<small>texto, courriel, au choix</small></span></button>
+            <button onClick={sharePdfTo}><Share2 size={19}/> <span>Envoyer le PDF<small>fichier attaché, sans suivi</small></span></button>
             <div className="send-menu-sep"/>
           </>}
-          <button onClick={sendEmail}><Mail size={19}/> <span>Courriel<small>texte seulement</small></span></button>
-          <button onClick={sendSms}><MessageSquare size={19}/> <span>Texto<small>texte seulement</small></span></button>
+          <button onClick={sendEmail}><Mail size={19}/> <span>Courriel<small>texte seulement, sans suivi</small></span></button>
+          <button onClick={sendSms}><MessageSquare size={19}/> <span>Texto<small>texte seulement, sans suivi</small></span></button>
           <button onClick={savePdf}><Download size={19}/> Enregistrer le PDF</button>
           <button onClick={printPdf}><Printer size={19}/> Imprimer</button>
         </div>

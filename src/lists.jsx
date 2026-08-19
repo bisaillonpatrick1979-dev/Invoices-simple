@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, Search, Settings as SettingsIcon, Inbox, X } from 'lucide-react'
+import { Plus, Search, Settings as SettingsIcon, Inbox, X, Eye } from 'lucide-react'
 import {
   calcTotals, docStatus, fmtDate, INVOICE_STAGES, invoiceStage, lastPaymentDate,
   load, money, parseNum, save
 } from './store.js'
+import { agoFr, seenCurrent } from './share.js'
 
 export const FAB_SIZE = 58
 export const FAB_DEFAULT = { right: 18, bottom: 92 }
@@ -192,7 +193,7 @@ export function AppBar({ title, left, right, tabs, activeTab, onTab }) {
   </header>
 }
 
-export function DocumentList({ type, docs, onOpen, onNew, onOpenSettings }) {
+export function DocumentList({ type, docs, shares = {}, onOpen, onNew, onOpenSettings }) {
   const [filter, setFilter] = useState('all')
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -259,6 +260,11 @@ export function DocumentList({ type, docs, onOpen, onNew, onOpenSettings }) {
                 {doc.number}{doc.siteAddress ? ` — ${firstLine(doc.siteAddress)}` : ''}
                 {doc.docType === 'invoice' &&
                   <span className={`stage ${invoiceStage(doc)}`}>{INVOICE_STAGES[invoiceStage(doc)]}</span>}
+                {/* Le client a ouvert son lien : c'est la seule preuve qu'il
+                    a la facture sous les yeux. */}
+                {shares[doc.id]?.last && <span className={`stage view ${seenCurrent(shares[doc.id]) ? '' : 'old'}`}>
+                  <Eye size={12}/> {seenCurrent(shares[doc.id]) ? `Vue ${agoFr(shares[doc.id].last.at)}` : 'Vue avant correction'}
+                </span>}
               </small>
             </div>
             <div className="docamount">

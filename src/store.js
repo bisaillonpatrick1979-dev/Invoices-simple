@@ -297,7 +297,7 @@ export function calcTotals(doc) {
 }
 
 // Texte du courriel envoyé au client — partagé par l'éditeur et l'assistant
-export function buildEmailBody(settings, doc, totals) {
+export function buildEmailBody(settings, doc, totals, link = '') {
   const b = settings.business
   const kind = doc.docType === 'invoice' ? 'facture' : 'devis'
   const lineText = doc.lines
@@ -316,7 +316,9 @@ Remise : -${money(totals.discount)}
 ${settings.taxLabel} (${doc.taxRate}%) : ${money(totals.tax)}
 Total : ${money(totals.total)}
 ${totals.paid > 0 ? `Paiements : ${money(totals.paid)}\nSolde dû : ${money(totals.balance)}\n` : ''}
-Note : pour joindre le PDF, utilisez « Envoyer le PDF » depuis l'application — ce message-ci ne transporte que le texte.
+${link
+  ? `Voir la facture et télécharger le PDF :\n${link}\n`
+  : `Note : pour joindre le PDF, utilisez « Envoyer le PDF » depuis l'application — ce message-ci ne transporte que le texte.`}
 
 Merci,
 ${b.name}
@@ -326,7 +328,7 @@ ${b.email || ''}`)
 
 // Le texto dit l'essentiel, avec le chantier et le numéro de la compagnie :
 // le client doit savoir quoi il paie, et à qui répondre.
-export const buildSmsBody = (settings, doc, totals) => {
+export const buildSmsBody = (settings, doc, totals, link = '') => {
   const b = settings.business || {}
   const kind = doc.docType === 'invoice' ? 'facture' : 'devis'
   return [
@@ -336,6 +338,8 @@ export const buildSmsBody = (settings, doc, totals) => {
     // détail de ce qui est annulé.
     revisionInfo(doc) ? `Révision ${revisionInfo(doc).n} : elle annule et remplace l'envoi précédent.` : '',
     doc.siteAddress ? `Travaux au ${doc.siteAddress}.` : '',
+    // le lien passe avant la signature : c'est sur quoi le client doit toucher
+    link ? `Facture et PDF : ${link}` : '',
     [b.name, b.phone].filter(Boolean).join(' — ')
   ].filter(Boolean).join(' ')
 }
@@ -408,11 +412,15 @@ export const fmtStamp = iso => {
 }
 
 // La ligne imprimée sur la facture, en toutes lettres.
+export function revisionLine(n, replaces) {
+  if (Number(n || 1) < 2) return ''
+  const when = fmtStamp(replaces)
+  return `Révision ${n} — remplace et annule la version${when ? ` du ${when}` : ' précédente'}`
+}
+
 export function revisionNote(doc) {
   const r = revisionInfo(doc)
-  if (!r) return ''
-  const when = fmtStamp(r.replaces)
-  return `Révision ${r.n} — remplace et annule la version${when ? ` du ${when}` : ' précédente'}`
+  return r ? revisionLine(r.n, r.replaces) : ''
 }
 
 export function invoiceStage(doc) {
