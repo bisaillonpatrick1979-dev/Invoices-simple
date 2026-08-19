@@ -601,29 +601,30 @@ export function DocumentEditor({ doc, settings, clients, items, share, cloudUser
     {view !== 'history' && <>
       {sendOpen && <div className="menu-backdrop no-print" onClick={() => setSendOpen(false)}>
         <div className="send-menu" onClick={e => e.stopPropagation()}>
-          <button onClick={previewPdf}><Eye size={19}/> Aperçu PDF</button>
-          <div className="send-menu-sep"/>
-          {/* Le partage natif est le seul chemin qui attache vraiment le PDF :
-              il ouvre Messages, Gmail, WhatsApp… au choix, et permet d'envoyer
-              aux deux. Un lien sms: ou mailto: ne transporte que du texte. */}
-          {/* Le lien d'abord : c'est le seul envoi qui revient dire au patron
-              que le client a ouvert la facture. */}
+          {/* Trois familles, nommées : la liste était devenue trop longue pour
+              un écran de téléphone, et « Aperçu PDF » sortait par le haut. */}
+          <h4>Le lien — tu sauras qui l'ouvre</h4>
           <button onClick={() => sendLink('sms')} disabled={!!linkBusy}>
-            <MessageSquare size={19}/> <span>Texto avec le lien<small>tu sauras quand il l'ouvre</small></span>
+            <MessageSquare size={19}/> <span>Texto avec le lien<small>au contremaître, au client…</small></span>
           </button>
           <button onClick={() => sendLink('mail')} disabled={!!linkBusy}>
-            <Mail size={19}/> <span>Courriel avec le lien<small>tu sauras quand il l'ouvre</small></span>
+            <Mail size={19}/> <span>Courriel avec le lien<small>à l'administration</small></span>
           </button>
           <button onClick={copyLink} disabled={!!linkBusy}><Copy size={19}/> Copier le lien</button>
-          <div className="send-menu-sep"/>
-          {shareable && <>
-            <button onClick={sharePdfTo}><Share2 size={19}/> <span>Envoyer le PDF<small>fichier attaché, sans suivi</small></span></button>
-            <div className="send-menu-sep"/>
-          </>}
-          <button onClick={sendEmail}><Mail size={19}/> <span>Courriel<small>texte seulement, sans suivi</small></span></button>
-          <button onClick={sendSms}><MessageSquare size={19}/> <span>Texto<small>texte seulement, sans suivi</small></span></button>
+
+          <h4>Le PDF</h4>
+          <button onClick={previewPdf}><Eye size={19}/> Aperçu PDF</button>
+          {/* Le partage natif est le seul chemin qui attache vraiment le
+              fichier : il ouvre Messages, Gmail, WhatsApp… au choix. */}
+          {shareable && <button onClick={sharePdfTo}>
+            <Share2 size={19}/> <span>Envoyer le PDF<small>fichier attaché, sans suivi</small></span>
+          </button>}
           <button onClick={savePdf}><Download size={19}/> Enregistrer le PDF</button>
           <button onClick={printPdf}><Printer size={19}/> Imprimer</button>
+
+          <h4>Texte seulement</h4>
+          <button onClick={sendEmail}><Mail size={19}/> <span>Courriel<small>sans pièce jointe ni suivi</small></span></button>
+          <button onClick={sendSms}><MessageSquare size={19}/> <span>Texto<small>sans pièce jointe ni suivi</small></span></button>
         </div>
       </div>}
       {shareError && <div className="menu-backdrop no-print" onClick={() => setShareError('')}>

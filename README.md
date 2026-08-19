@@ -90,14 +90,14 @@ L'état se met à jour tout seul quand tu envoies depuis l'app. Quand la facture
 
 Un PDF attaché à un texto ne dit jamais rien : une fois le fichier chez le client, il ne parle plus. Un **lien**, lui, passe par une page — et une page qui s'ouvre, ça se sait.
 
-Dans le menu **Envoyer** :
+Le bouton **Envoyer** ouvre un panneau en trois sections, qui tient dans l'écran et défile :
 
-| Choix | Suivi |
-|---|---|
-| **Texto avec le lien** / **Courriel avec le lien** | oui — l'app dit quand le client ouvre |
-| **Copier le lien** | oui, mais la facture n'est pas marquée envoyée (copier n'est pas envoyer) |
-| **Envoyer le PDF** (fichier attaché) | aucun |
-| **Courriel** / **Texto** (texte seul) | aucun |
+| Section | Choix | Suivi |
+|---|---|---|
+| **Le lien** | **Texto avec le lien**, **Courriel avec le lien** | oui — l'app dit qui ouvre, et quand |
+| | **Copier le lien** | oui, mais la facture n'est pas marquée envoyée (copier n'est pas envoyer) |
+| **Le PDF** | **Aperçu PDF**, **Envoyer le PDF** (fichier attaché), **Enregistrer le PDF**, **Imprimer** | aucun |
+| **Texte seulement** | **Courriel**, **Texto** | aucun |
 
 Le destinataire reçoit une adresse du genre `invoices-simple.vercel.app/f/wkLA8tdPctk…` : il touche, la facture s'ouvre dans son navigateur, avec un bouton **Télécharger le PDF**. Pas de compte, pas d'application à installer.
 

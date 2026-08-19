@@ -497,17 +497,58 @@ button.primary.wide { width: 100%; margin-top: 12px; }
 .menu button:hover { background: #f4f5f8; }
 .menu button.danger { color: var(--red); }
 
+/* Panneau d'envoi : ancré en bas de l'écran et défilant. Il flottait au-dessus
+   du bouton, à une hauteur fixe : dès qu'il y a eu plus de choix, le haut de la
+   liste — « Aperçu PDF » — sortait de l'écran sur un téléphone. */
 .send-menu {
   position: fixed;
-  right: max(18px, calc(50vw - 430px + 18px));
-  bottom: 160px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 84vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 10px 32px rgba(15, 23, 42, .3);
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -8px 32px rgba(15, 23, 42, .3);
   display: flex;
   flex-direction: column;
-  min-width: 190px;
-  overflow: hidden;
+  padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+}
+/* petit repère à saisir, comme les panneaux du téléphone */
+.send-menu::before {
+  content: '';
+  align-self: center;
+  width: 38px;
+  height: 4px;
+  border-radius: 999px;
+  background: #d5d9e2;
+  margin: 9px 0 3px;
+  flex: none;
+}
+.send-menu h4 {
+  margin: 6px 0 0;
+  padding: 8px 18px 4px;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+}
+.send-menu h4:first-of-type { border-top: 0; }
+
+/* Sur grand écran, la petite carte flottante près du bouton reste plus juste */
+@media (min-width: 620px) {
+  .send-menu {
+    left: auto;
+    right: max(18px, calc(50vw - 430px + 18px));
+    bottom: 110px;
+    min-width: 280px;
+    border-radius: 12px;
+    max-height: calc(100vh - 190px);
+    box-shadow: 0 10px 32px rgba(15, 23, 42, .3);
+  }
+  .send-menu::before { display: none; }
 }
 .send-menu button {
   display: flex;
