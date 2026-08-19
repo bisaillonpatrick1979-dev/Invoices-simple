@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import {
   load, save, emptySettings, hasDraftContent, mergeItemsFromLines, mergeSettings,
-  migrateOldData, newDocument
+  migrateOldData, newDocument, nextNumber
 } from './store.js'
 import { prepareItems } from './seed.js'
 import { DocumentList } from './lists.jsx'
@@ -197,7 +197,11 @@ function App() {
         onSave={upsertDoc}
         onDelete={() => deleteDoc(editing.id)}
         onConvert={inv => {
-          const stored = upsertDoc(inv)
+          // Le devis EST0003 donnait la facture INVOICE0003 — qui existait
+          // peut-être déjà. Deux factures au même numéro, c'est une erreur de
+          // livres. Le numéro est donc pris à la suite des factures, ici, où
+          // la liste complète est connue.
+          const stored = upsertDoc({ ...inv, number: nextNumber(docs, 'invoice', settings.invoicePrefix) })
           setTab('factures')
           setEditing(stored)
         }}

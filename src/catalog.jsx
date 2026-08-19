@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { ArrowLeft, Plus, Trash2, Pencil, Search, X } from 'lucide-react'
-import { emptyClient, emptyItem, emptyExpense, EXPENSE_CATEGORIES, fmtDate, money, today, uid, UNITS } from './store.js'
-import { AppBar, Fab } from './lists.jsx'
+import { emptyClient, emptyItem, emptyExpense, EXPENSE_CATEGORIES, fmtDate, money, parseNum, today, uid, UNITS } from './store.js'
+import { AppBar, Fab, NumField } from './lists.jsx'
 
 function FormSheet({ title, onClose, onSubmit, submitLabel, children }) {
   return <div className="sheet-backdrop no-print" onClick={onClose}>
@@ -69,7 +69,7 @@ export function ItemsScreen({ items, setItems, onBack }) {
 
   const submit = () => {
     if (!draft.description.trim()) return alert('Entre une description.')
-    const it = { ...draft, id: draft.id || uid(), rate: Number(draft.rate || 0), unit: draft.unit || 'ea' }
+    const it = { ...draft, id: draft.id || uid(), rate: parseNum(draft.rate), unit: draft.unit || 'ea' }
     setItems(list => list.some(x => x.id === it.id) ? list.map(x => x.id === it.id ? it : x) : [...list, it])
     setDraft(null)
   }
@@ -107,7 +107,7 @@ export function ItemsScreen({ items, setItems, onBack }) {
     {draft && <FormSheet title={draft.id ? 'Modifier article' : 'Nouvel article'} onClose={() => setDraft(null)} onSubmit={submit} submitLabel="Enregistrer">
       <input placeholder="Description (ex. : Poser des panneaux)" value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })}/>
       <div className="pair">
-        <input type="number" inputMode="decimal" placeholder="Prix (ex. : 3)" value={draft.rate} onChange={e => setDraft({ ...draft, rate: e.target.value })}/>
+        <NumField placeholder="Prix (ex. : 3)" value={draft.rate} onChange={v => setDraft({ ...draft, rate: v })}/>
         <input list="unit-options" placeholder="Unité (ex. : pi²)" value={draft.unit} onChange={e => setDraft({ ...draft, unit: e.target.value })}/>
       </div>
       <datalist id="unit-options">{UNITS.map(u => <option key={u} value={u}/>)}</datalist>
@@ -120,8 +120,8 @@ export function ExpensesScreen({ expenses, setExpenses, onBack }) {
   const [draft, setDraft] = useState(null)
 
   const submit = () => {
-    if (!draft.description.trim() || !Number(draft.amount)) return alert('Entre une description et un montant.')
-    const ex = { ...draft, id: draft.id || uid(), amount: Number(draft.amount), date: draft.date || today() }
+    if (!draft.description.trim() || !parseNum(draft.amount)) return alert('Entre une description et un montant.')
+    const ex = { ...draft, id: draft.id || uid(), amount: parseNum(draft.amount), date: draft.date || today() }
     setExpenses(list => list.some(x => x.id === ex.id) ? list.map(x => x.id === ex.id ? ex : x) : [ex, ...list])
     setDraft(null)
   }
@@ -149,7 +149,7 @@ export function ExpensesScreen({ expenses, setExpenses, onBack }) {
     {draft && <FormSheet title={draft.id ? 'Modifier dépense' : 'Nouvelle dépense'} onClose={() => setDraft(null)} onSubmit={submit} submitLabel="Enregistrer">
       <input placeholder="Description" value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })}/>
       <div className="pair">
-        <input type="number" placeholder="Montant" value={draft.amount || ''} onChange={e => setDraft({ ...draft, amount: e.target.value })}/>
+        <NumField placeholder="Montant" value={draft.amount || ''} onChange={v => setDraft({ ...draft, amount: v })}/>
         <input type="date" value={draft.date} onChange={e => setDraft({ ...draft, date: e.target.value })}/>
       </div>
       <select value={draft.category} onChange={e => setDraft({ ...draft, category: e.target.value })}>

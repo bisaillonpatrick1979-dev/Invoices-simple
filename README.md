@@ -68,6 +68,19 @@ Une facture par chantier : la rangée **Chantier**, sous le client, porte l'adre
 
 Un bouton **Reprendre l'adresse du client** évite de la retaper quand c'est la même. L'adresse part aussi dans le courriel envoyé au client, et l'assistant IA la remplit si tu la dis (« j'ai fait le 789 rue des Pins »).
 
+## Où en est chaque facture
+
+Sur la liste, chaque rangée porte le **chantier** à côté du numéro et une **pastille d'état** :
+
+| Pastille | Ce que ça veut dire |
+|---|---|
+| **En cours** | pas encore envoyée au client |
+| **En attente de paiement** | envoyée, l'argent n'est pas rentré |
+| **Payée** | soldée |
+| **Ouvert** / **Fermé** | pour les devis |
+
+La recherche trouve aussi par chantier, pas seulement par client ou numéro.
+
 ## Rien ne se perd
 
 **Une facture en cours s'enregistre toute seule**, sans bouton à toucher :
@@ -97,6 +110,8 @@ Une touche sur la suggestion remplit la description, le prix, l'unité et le car
 Une description déjà connue est mise à jour plutôt que dupliquée (la casse n'a pas d'importance), et une description de moins de 3 lettres n'est pas retenue, pour ne pas mémoriser un mot à moitié tapé.
 
 **Plus → Articles** montre toute la liste : recherche, tri alphabétique, modification du prix, suppression de ce qui ne sert pas. Le bouton « + » permet aussi d'ajouter un prix à la main, sans passer par une facture.
+
+Les prix et les quantités acceptent la **virgule** comme le point : sur un clavier québécois, la touche décimale écrit une virgule, et « 4,50 » vaut 4,50 $ — pas 450 $.
 
 Le champ **unité** est libre, avec des suggestions courantes (ea, h, pi², pi lin., verge², jour, lot, km), et sort dans la colonne « Unité » du PDF.
 

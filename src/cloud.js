@@ -141,6 +141,16 @@ const saveSnap = snap => save(SNAP_KEY, snap)
 export const forgetSnapshot = () => save(SNAP_KEY, emptySnap())
 
 const stamp = row => JSON.stringify(row)
+
+// PostgREST met les identifiants demandés dans l'URL, et une facture porte ses
+// photos : on découpe. Sur un appareil neuf, tout le catalogue et toutes les
+// factures descendent d'un coup — c'est là que la requête devient énorme.
+const CHUNK = 60
+const chunks = list => {
+  const out = []
+  for (let i = 0; i < list.length; i += CHUNK) out.push(list.slice(i, i + CHUNK))
+  return out
+}
 const ts = v => (v ? new Date(v).getTime() : 0)
 
 // Réconcilie une collection. Le contenu fait foi : une ligne dont le texte a
@@ -210,9 +220,9 @@ async function syncCollection(name, localList, userId, snap, totalsOf) {
   const now = new Date().toISOString()
 
   // Deuxième passage : le contenu des seules lignes à redescendre.
-  if (plan.pull.length) {
+  for (const part of chunks(plan.pull)) {
     const { data: full, error: pullErr } = await db.from(spec.table)
-      .select('*').eq('user_id', userId).in('id', plan.pull)
+      .select('*').eq('user_id', userId).in('id', part)
     if (pullErr) throw pullErr
     for (const r of full || []) {
       const parsed = spec.fromRow(r)
@@ -220,8 +230,8 @@ async function syncCollection(name, localList, userId, snap, totalsOf) {
     }
   }
 
-  if (plan.upsert.length) {
-    const rows = plan.upsert.map(x => ({
+  for (const part of chunks(plan.upsert)) {
+    const rows = part.map(x => ({
       ...spec.toRow(x, totalsOf?.(x)),
       user_id: userId,
       updated_at: now,
@@ -231,13 +241,13 @@ async function syncCollection(name, localList, userId, snap, totalsOf) {
     if (upErr) throw upErr
   }
 
-  if (plan.remove.length) {
-    // On marque au lieu d'effacer : l'autre appareil doit apprendre la
-    // suppression à sa prochaine synchro.
+  // On marque au lieu d'effacer : l'autre appareil doit apprendre la
+  // suppression à sa prochaine synchro.
+  for (const part of chunks(plan.remove)) {
     const { error: delErr } = await db.from(spec.table)
       .update({ deleted_at: now, updated_at: now })
       .eq('user_id', userId)
-      .in('id', plan.remove)
+      .in('id', part)
     if (delErr) throw delErr
   }
 

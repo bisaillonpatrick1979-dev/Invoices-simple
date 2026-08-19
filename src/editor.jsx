@@ -6,10 +6,10 @@ import {
 } from 'lucide-react'
 import {
   buildEmailBody, buildSmsBody, calcTotals, docStatus, fmtDate, lineTotal, money,
-  newLine, suggestItems, uid, today, emptyClient, withEvent, UNITS
+  newLine, parseNum, suggestItems, uid, today, emptyClient, withEvent, UNITS
 } from './store.js'
 import { canSharePdf, downloadPdf, sharePdf } from './pdf.js'
-import { AppBar } from './lists.jsx'
+import { AppBar, NumField } from './lists.jsx'
 import { InvoicePaper } from './paper.jsx'
 
 const EDITOR_TABS = [
@@ -146,7 +146,7 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
   }
 
   const addPayment = () => {
-    const amount = Number(prompt('Montant du paiement :', totals.balance > 0 ? totals.balance.toFixed(2) : ''))
+    const amount = parseNum(prompt('Montant du paiement :', totals.balance > 0 ? totals.balance.toFixed(2) : ''))
     if (!amount || amount <= 0) return
     persist(withEvent({
       ...doc,
@@ -159,6 +159,8 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
       ...doc,
       id: uid(),
       docType: 'invoice',
+      // le numéro définitif est attribué à l'enregistrement, à la suite des
+      // factures existantes
       number: doc.number.replace(settings.estimatePrefix, settings.invoicePrefix),
       payments: [],
       status: 'draft',
@@ -283,9 +285,9 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
             />
             <div className="line-right">
               <span className="line-calc">
-                <input type="number" value={l.qty} onChange={e => setLine(l.id, { qty: e.target.value })}/>
+                <NumField value={l.qty} onChange={v => setLine(l.id, { qty: v })}/>
                 ×
-                <input type="number" value={l.rate} onChange={e => setLine(l.id, { rate: e.target.value })}/>
+                <NumField value={l.rate} onChange={v => setLine(l.id, { rate: v })}/>
               </span>
               <b>{money(lineTotal(l))}</b>
             </div>
@@ -326,7 +328,7 @@ export function DocumentEditor({ doc, settings, clients, items, onChange, onSave
         <Row>
           <span>Remise</span>
           <span className="inline-edit">
-            <input type="number" value={doc.discountValue} onChange={e => set({ discountValue: e.target.value })}/>
+            <NumField value={doc.discountValue} onChange={v => set({ discountValue: v })}/>
             <select value={doc.discountType} onChange={e => set({ discountType: e.target.value })}>
               <option value="$">$</option>
               <option value="%">%</option>

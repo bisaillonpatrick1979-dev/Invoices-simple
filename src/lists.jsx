@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Search, Settings as SettingsIcon, Inbox, X } from 'lucide-react'
-import { calcTotals, docStatus, fmtDate, lastPaymentDate, load, money, save } from './store.js'
+import { calcTotals, docStatus, fmtDate, lastPaymentDate, load, money, parseNum, save } from './store.js'
 
 export const FAB_SIZE = 58
 export const FAB_DEFAULT = { right: 18, bottom: 92 }
@@ -120,11 +120,59 @@ export function useFabDrag(key, fallback, onClick, resolve) {
   }
 }
 
+// Champ de nombre qui accepte la virgule. Avec <input type="number">, le
+// navigateur jette la virgule d'un clavier français : « 4,50 » devenait 450 et
+// « 12,5 » devenait 125. Un prix multiplié par cent, en silence, jusque sur la
+// facture envoyée. On garde donc la frappe telle quelle et on la convertit.
+export function NumField({ value, onChange, ...rest }) {
+  const [text, setText] = useState(() => (value === '' || value == null ? '' : String(value)))
+
+  // une valeur changée ailleurs (article pris au catalogue) doit s'afficher
+  useEffect(() => {
+    if (parseNum(text) !== parseNum(value)) setText(value === '' || value == null ? '' : String(value))
+  }, [value])
+
+  return <input
+    type="text"
+    inputMode="decimal"
+    value={text}
+    // le champ contient souvent un 0 ou un 1 de départ : taper dedans doit le
+    // remplacer, pas s'insérer à côté et donner « 4,500 »
+    onFocus={e => e.target.select()}
+    onChange={e => {
+      const raw = e.target.value
+      // on laisse passer les états intermédiaires : « 4, », « -, », « » …
+      if (!/^-?[\d]*[.,]?[\d]*$/.test(raw)) return
+      setText(raw)
+      onChange(parseNum(raw))
+    }}
+    {...rest}
+  />
+}
+
 export function Fab({ onClick, title = 'Ajouter' }) {
   const { style, handlers } = useFabDrag('is_fab_pos', FAB_DEFAULT, onClick)
   return <button className="fab no-print" title={title} style={style} {...handlers}>
     <Plus size={28}/>
   </button>
+}
+
+// Où en est un document, en une pastille : ce que la liste doit dire d'un
+// coup d'œil. `docStatus` ne connaît que payé/impayé ; l'envoi, lui, se lit
+// sur le document.
+// Une adresse de chantier peut tenir sur plusieurs lignes ; la rangée n'en
+// montre que la première.
+const firstLine = v => String(v || '').split('\n')[0].trim()
+
+export function docBadge(doc, status) {
+  if (doc.docType === 'estimate') {
+    return status === 'closed'
+      ? { label: 'Fermé', tone: 'done' }
+      : { label: 'Ouvert', tone: 'open' }
+  }
+  if (status === 'paid') return { label: 'Payée', tone: 'done' }
+  if (doc.status === 'sent') return { label: 'En attente de paiement', tone: 'wait' }
+  return { label: 'En cours', tone: 'draft' }
 }
 
 const TABS = {
@@ -164,11 +212,13 @@ export function DocumentList({ type, docs, onOpen, onNew, onOpenSettings }) {
     const q = query.trim().toLowerCase()
     return docs
       .filter(d => d.docType === type)
-      .map(d => ({ doc: d, status: docStatus(d), totals: calcTotals(d) }))
+      .map(d => ({ doc: d, status: docStatus(d), totals: calcTotals(d), badge: docBadge(d, docStatus(d)) }))
       .filter(({ doc, status }) => {
         if (filter !== 'all' && status !== filter) return false
         if (!q) return true
-        return [doc.number, doc.client?.name, doc.client?.email].some(v => String(v || '').toLowerCase().includes(q))
+        // le chantier est affiché sur la rangée : il doit aussi se chercher
+        return [doc.number, doc.client?.name, doc.client?.email, doc.siteAddress]
+          .some(v => String(v || '').toLowerCase().includes(q))
       })
       .sort((a, b) => (b.doc.date || '').localeCompare(a.doc.date || '') || (b.doc.updatedAt || '').localeCompare(a.doc.updatedAt || ''))
   }, [docs, type, query, filter])
@@ -200,7 +250,7 @@ export function DocumentList({ type, docs, onOpen, onNew, onOpenSettings }) {
 
     {searchOpen && <div className="searchbar">
       <Search size={17}/>
-      <input autoFocus placeholder="Chercher par client ou numéro..." value={query} onChange={e => setQuery(e.target.value)}/>
+      <input autoFocus placeholder="Chercher par client, numéro ou chantier..." value={query} onChange={e => setQuery(e.target.value)}/>
     </div>}
 
     <div className="doclist">
@@ -212,11 +262,12 @@ export function DocumentList({ type, docs, onOpen, onNew, onOpenSettings }) {
       </div>}
       {groups.map(g => <div key={g.year}>
         <div className="year-head"><span>{g.year}</span><span>{money(g.total)}</span></div>
-        {g.rows.map(({ doc, status, totals }) => (
+        {g.rows.map(({ doc, status, totals, badge }) => (
           <button className="docrow" key={doc.id} onClick={() => onOpen(doc)}>
             <div className="docinfo">
               <b>{doc.client?.name || 'Sans client'}</b>
-              <small>{doc.number}</small>
+              <small>{doc.number}{doc.siteAddress ? ` — ${firstLine(doc.siteAddress)}` : ''}</small>
+              <span className={`badge ${badge.tone}`}>{badge.label}</span>
             </div>
             <div className="docamount">
               <b>{money(totals.total)}</b>

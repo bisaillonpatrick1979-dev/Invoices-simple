@@ -107,6 +107,12 @@ export const MAX_FILE_MB = 12
 
 export function readDataFile(file) {
   return new Promise((resolve, reject) => {
+    // Seul le PDF est lu par les fournisseurs d'IA. Un .docx partirait en
+    // erreur obscure de leur côté : mieux vaut le dire ici.
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '')
+    if (!isPdf) {
+      return reject(new Error(`« ${file.name} » n'est ni une image ni un PDF. Envoie une photo de la page, ou exporte-la en PDF.`))
+    }
     if (file.size > MAX_FILE_MB * 1024 * 1024) {
       return reject(new Error(`« ${file.name} » est trop lourd (${Math.round(file.size / 1024 / 1024)} Mo). Maximum ${MAX_FILE_MB} Mo.`))
     }
@@ -135,6 +141,14 @@ export const EXPENSE_CATEGORIES = ['Matériel', 'Essence', 'Outils', 'Sous-trait
 
 // Unités suggérées (le champ reste libre : on peut taper n'importe quoi)
 export const UNITS = ['ea', 'h', 'pi²', 'pi lin.', 'verge²', 'jour', 'lot', 'km']
+
+// Un nombre tapé à la main : sur un clavier québécois, la touche décimale
+// écrit une virgule. « 4,50 » doit valoir 4,5 — pas 450.
+export const parseNum = v => {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0
+  const n = Number(String(v ?? '').replace(/\s|\u00a0/g, '').replace(',', '.'))
+  return Number.isFinite(n) ? n : 0
+}
 
 export const normDesc = d => String(d || '').trim().toLowerCase()
 
