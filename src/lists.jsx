@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Search, Settings as SettingsIcon, Inbox, X } from 'lucide-react'
-import { calcTotals, docStatus, fmtDate, lastPaymentDate, load, money, save } from './store.js'
+import { calcTotals, docStatus, fmtDate, INVOICE_STAGES, invoiceStage, lastPaymentDate, load, money, save } from './store.js'
 
 export const FAB_SIZE = 58
 export const FAB_DEFAULT = { right: 18, bottom: 92 }
@@ -216,7 +216,11 @@ export function DocumentList({ type, docs, onOpen, onNew, onOpenSettings }) {
           <button className="docrow" key={doc.id} onClick={() => onOpen(doc)}>
             <div className="docinfo">
               <b>{doc.client?.name || 'Sans client'}</b>
-              <small>{doc.number}</small>
+              <small className="docmeta">
+                {doc.number}
+                {doc.docType === 'invoice' &&
+                  <span className={`stage ${invoiceStage(doc)}`}>{INVOICE_STAGES[invoiceStage(doc)]}</span>}
+              </small>
             </div>
             <div className="docamount">
               <b>{money(totals.total)}</b>

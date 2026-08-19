@@ -1155,3 +1155,18 @@ button.primary.wide { width: 100%; margin-top: 12px; }
   /* sans ça, certains navigateurs impriment le filigrane en blanc */
   .watermark img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* État d'une facture dans la liste : en cours / envoyée / payée */
+.docmeta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.stage {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  padding: 2px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.stage.draft { background: #fef3c7; color: #92400e; }
+.stage.sent { background: #e0e7ff; color: var(--blue); }
+.stage.paid { background: #dcfce7; color: var(--green); }

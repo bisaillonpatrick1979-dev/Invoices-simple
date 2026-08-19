@@ -326,6 +326,20 @@ export function docStatus(doc) {
   return 'unpaid'
 }
 
+// Où en est une facture, du point de vue de l'utilisateur : d'abord payée,
+// sinon envoyée, sinon encore en chantier. L'ordre compte — une facture payée
+// a forcément été envoyée, et c'est « payée » qu'on veut lire.
+export function invoiceStage(doc) {
+  if (docStatus(doc) === 'paid') return 'paid'
+  return doc.status === 'sent' ? 'sent' : 'draft'
+}
+
+export const INVOICE_STAGES = {
+  draft: 'En cours',
+  sent: 'Envoyée',
+  paid: 'Payée'
+}
+
 export const lastPaymentDate = doc => {
   const ps = doc.payments || []
   return ps.length ? ps[ps.length - 1].date : ''

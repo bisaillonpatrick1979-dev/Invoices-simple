@@ -78,6 +78,18 @@ Un bouton **Reprendre l'adresse du client** évite de la retaper quand c'est la 
 
 Deux garde-fous : une facture **encore vide** n'est pas gardée (elle encombrerait la liste et brûlerait un numéro pour rien), et l'enregistrement automatique **ne touche pas au catalogue de prix** — une description à moitié tapée n'a rien à faire dans ta liste de prix. Le catalogue n'apprend que sur un vrai enregistrement.
 
+## État de chaque facture dans la liste
+
+Chaque facture porte une pastille dans l'onglet **Factures**, pour voir d'un coup d'œil où elle en est :
+
+| Pastille | Quand |
+|---|---|
+| **En cours** | La facture est commencée mais jamais envoyée. |
+| **Envoyée** | Elle est partie au client (courriel, texto ou PDF partagé). |
+| **Payée** | Elle est réglée au complet — dès que les paiements couvrent le total, ou après « Marquer comme payée ». |
+
+« Payée » l'emporte sur « Envoyée » : une facture réglée a forcément été envoyée, et c'est le paiement qui compte.
+
 ## Catalogue d'articles (liste de prix)
 
 **Tout ce qui est facturé est mémorisé automatiquement.** Dès qu'une facture est enregistrée, chaque ligne (description, prix, unité, taxable) entre au catalogue. Rien à toucher.
