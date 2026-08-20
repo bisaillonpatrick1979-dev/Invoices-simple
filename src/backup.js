@@ -81,17 +81,25 @@ const mergeById = (current, incoming) => {
 export function applyBackup(data) {
   const added = {}
   for (const [name, key, fallback] of STORES) {
-    if (data[name] === undefined) continue
-    if (name === 'settings') {
-      const current = load(key, fallback)
-      // la clé API de l'appareil survit à la restauration
-      save(key, { ...current, ...data.settings, ai: { ...(data.settings.ai || {}), apiKey: current?.ai?.apiKey || '' } })
-      continue
-    }
-    const before = load(key, fallback)
-    const after = mergeById(before, data[name])
-    save(key, after)
-    added[name] = after.length - before.length
+    const incoming = data?.[name]
+    // Absente, nulle ou du mauvais type : on passe. Une section abîmée du
+    // fichier ne doit pas emporter les autres — c'est justement quand la copie
+    // est imparfaite qu'on a besoin de récupérer le reste.
+    if (incoming == null) continue
+    try {
+      if (name === 'settings') {
+        if (typeof incoming !== 'object' || Array.isArray(incoming)) continue
+        const current = load(key, fallback)
+        // la clé API de l'appareil survit à la restauration
+        save(key, { ...current, ...incoming, ai: { ...(incoming.ai || {}), apiKey: current?.ai?.apiKey || '' } })
+        continue
+      }
+      if (!Array.isArray(incoming)) continue
+      const before = load(key, fallback)
+      const after = mergeById(before, incoming)
+      save(key, after)
+      added[name] = after.length - before.length
+    } catch { /* cette section-là ne se relit pas : les autres, oui */ }
   }
   return added
 }

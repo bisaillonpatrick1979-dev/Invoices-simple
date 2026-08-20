@@ -36,6 +36,11 @@ export const defaultWatermark = {
   rotate: -24     // degrés
 }
 
+// Où on est rendu, par type. Gardé dans les réglages : un document supprimé,
+// ou importé puis effacé, ne doit pas faire reculer la numérotation — deux
+// factures au même numéro, c'est une erreur de livres.
+export const emptyCounters = { invoice: 0, estimate: 0 }
+
 export const emptySettings = {
   business: {
     name: 'Votre compagnie',
@@ -58,7 +63,9 @@ export const emptySettings = {
   invoicePrefix: 'INVOICE',
   estimatePrefix: 'EST',
   defaultNotes: '',
-  paymentInstructions: ''
+  paymentInstructions: '',
+  // le plus haut numéro déjà utilisé, par type
+  counters: { ...emptyCounters }
 }
 
 // Complète les réglages enregistrés avec les clés ajoutées par les nouvelles versions
@@ -67,7 +74,8 @@ export const mergeSettings = stored => ({
   ...stored,
   business: { ...emptySettings.business, ...(stored?.business || {}) },
   watermark: { ...defaultWatermark, ...(stored?.watermark || {}) },
-  ai: { ...emptySettings.ai, ...(stored?.ai || {}) }
+  ai: { ...emptySettings.ai, ...(stored?.ai || {}) },
+  counters: { ...emptyCounters, ...(stored?.counters || {}) }
 })
 
 // Lit une image et la redimensionne : le localStorage est limité (~5 Mo),
@@ -188,21 +196,49 @@ export function suggestItems(items, typed, limit = 6) {
 
 export const newLine = () => ({ id: uid(), description: '', qty: 1, unit: 'ea', rate: 0, taxable: true })
 
-export const nextNumber = (docs, type, prefix) => {
-  const nums = docs
-    .filter(d => d.docType === type)
-    .map(d => {
-      const m = String(d.number || '').match(/(\d+)\s*$/)
-      return m ? Number(m[1]) : 0
-    })
-  const next = (nums.length ? Math.max(...nums) : 0) + 1
+// Le rang d'un numéro de document : les derniers chiffres, quel que soit ce
+// qu'il y a devant. « INVOICE0042 », « F-2026-042 » et « 42 » valent 42 — une
+// facture venue d'une autre application se range donc dans la suite.
+export const numberRank = value => {
+  const m = String(value ?? '').match(/(\d+)\s*$/)
+  return m ? Number(m[1]) : 0
+}
+
+export const countersFromDocs = (docs, counters = emptyCounters) => {
+  const top = type => Math.max(
+    Number(counters?.[type] || 0),
+    ...(docs || []).filter(d => d.docType === type).map(d => numberRank(d.number)),
+    0
+  )
+  return { invoice: top('invoice'), estimate: top('estimate') }
+}
+
+// `floor` = le plus haut numéro déjà atteint, même si le document n'est plus
+// là. Le prochain vient après le plus grand des deux.
+export const nextNumber = (docs, type, prefix, floor = 0) => {
+  const nums = (docs || []).filter(d => d.docType === type).map(d => numberRank(d.number))
+  const next = Math.max(Number(floor) || 0, ...nums, 0) + 1
   return `${prefix}${String(next).padStart(4, '0')}`
 }
+
+// Un numéro déjà porté par un autre document du même type : à l'import comme
+// à la main, c'est ce qu'il ne faut pas laisser passer sans le dire.
+export const duplicateNumber = (docs, doc) =>
+  (docs || []).some(d =>
+    d.id !== doc.id &&
+    d.docType === doc.docType &&
+    String(d.number || '').trim().toLowerCase() === String(doc.number || '').trim().toLowerCase() &&
+    String(doc.number || '').trim() !== ''
+  )
 
 export const newDocument = (type, settings, docs) => ({
   id: uid(),
   docType: type,
-  number: nextNumber(docs, type, type === 'invoice' ? settings.invoicePrefix : settings.estimatePrefix),
+  number: nextNumber(
+    docs, type,
+    type === 'invoice' ? settings.invoicePrefix : settings.estimatePrefix,
+    settings.counters?.[type] || 0
+  ),
   date: today(),
   dueDate: '',
   clientId: '',

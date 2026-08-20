@@ -259,7 +259,8 @@ ${draftBlock(draft)}
 Tu réponds UNIQUEMENT avec un objet JSON, sans texte autour et sans bloc de code. Formes possibles :
 
 1) Créer une facture (l'utilisateur décrit un travail fait, ou envoie une photo/capture d'une liste de travaux) :
-{"action":"invoice","reply":"phrase courte pour l'utilisateur","client":{"name":"","address":"","city":"","phone":"","email":""},"siteAddress":"adresse du chantier","lines":[{"description":"","qty":1,"unit":"ea","rate":0,"taxable":true}],"notes":"","update":false}
+{"action":"invoice","reply":"phrase courte pour l'utilisateur","client":{"name":"","address":"","city":"","phone":"","email":""},"siteAddress":"adresse du chantier","lines":[{"description":"","qty":1,"unit":"ea","rate":0,"taxable":true}],"notes":"","number":"","date":"","update":false}
+- "number" et "date" ne servent QUE pour une facture déjà émise qu'on reprend d'ailleurs (vieille facture d'une autre application, PDF d'une facture passée) : mets alors le numéro et la date lus sur le document, tels quels. Pour une facture neuve, laisse les deux vides — l'application donne le numéro suivant.
 - "siteAddress" est l'adresse où les travaux ont été faits (« j'ai fait le 123 rue Principale »). C'est une facture par chantier, et elle est imprimée sur la facture. Ce n'est pas forcément l'adresse du client : laisse vide si elle n'est pas dite.
 
 2) Ajouter des prix au catalogue (l'utilisateur envoie une liste de prix) :

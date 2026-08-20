@@ -185,8 +185,18 @@ export function AssistantScreen({
       // sa date, seules les lignes changent.
       const previous = data.update === true ? draftRef.current : null
       const client = cleanClient(data.client)
+      // Une facture reprise d'ailleurs garde son numéro et sa date d'origine :
+      // c'est le même document dans les livres du client. Le compteur de l'app
+      // se relève tout seul ensuite, pour que la suivante vienne après.
+      const imported = !previous && String(data.number || '').trim()
+        ? {
+            number: String(data.number).trim().slice(0, 40),
+            date: /^\d{4}-\d{2}-\d{2}$/.test(String(data.date || '')) ? data.date : undefined
+          }
+        : null
       const doc = {
         ...(previous || newDocument('invoice', settings, docs)),
+        ...(imported ? Object.fromEntries(Object.entries(imported).filter(([, v]) => v !== undefined)) : {}),
         // une correction qui ne reparle pas du client garde celui d'avant
         client: client.name || !previous ? client : previous.client,
         siteAddress: String(data.siteAddress || previous?.siteAddress || '').slice(0, 200),

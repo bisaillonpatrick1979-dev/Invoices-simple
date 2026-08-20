@@ -1412,3 +1412,8 @@ button.primary.wide { width: 100%; margin-top: 12px; }
   .share-head { flex-wrap: wrap; }
   .share-head .primary { width: 100%; justify-content: center; }
 }
+
+
+/* Un refus qu'il faut lire : numéro déjà pris, compteur qu'on ne peut pas
+   faire reculer. */
+.warn-text { color: #b02a2a; }

@@ -5,7 +5,7 @@ import {
   Share2, Download, Link2, Copy, EyeOff, CheckCheck
 } from 'lucide-react'
 import {
-  buildEmailBody, buildSmsBody, calcTotals, docStatus, fmtDate, fmtStamp, isRevised,
+  buildEmailBody, buildSmsBody, calcTotals, docStatus, duplicateNumber, fmtDate, fmtStamp, isRevised,
   lineTotal, markSent, money, newLine, parseNum, suggestItems, uid,
   today, emptyClient, withEvent, UNITS
 } from './store.js'
@@ -59,7 +59,7 @@ function Row({ children, onClick, chevron, bold, className = '' }) {
   </Tag>
 }
 
-export function DocumentEditor({ doc, settings, clients, items, share, cloudUser, onShareChange, onChange, onSave, onDelete, onConvert, onSaveClient, onSaveItem, onOpenSettings, onClose }) {
+export function DocumentEditor({ doc, settings, clients, items, docs = [], share, cloudUser, onShareChange, onChange, onSave, onDelete, onConvert, onSaveClient, onSaveItem, onOpenSettings, onClose }) {
   const [view, setView] = useState('edit')
   const [sendOpen, setSendOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -352,6 +352,11 @@ export function DocumentEditor({ doc, settings, clients, items, share, cloudUser
         <Row>
           <input className="ghost bold-input" value={doc.number} onChange={e => set({ number: e.target.value })}/>
         </Row>
+        {/* Deux documents au même numéro, c'est une erreur de livres — et ça
+            arrive vite en reprenant une numérotation venue d'ailleurs. */}
+        {duplicateNumber(docs, doc) && <p className="track-warn">
+          Ce numéro est déjà porté par {isInvoice ? 'une autre facture' : 'un autre devis'}. Change-le : deux documents au même numéro brouillent la comptabilité.
+        </p>}
         <Row onClick={onOpenSettings} chevron>
           <span className="hint">Informations relatives à l'entreprise</span>
           <input type="date" className="ghost date-input" value={doc.date} onClick={e => e.stopPropagation()} onChange={e => set({ date: e.target.value })}/>

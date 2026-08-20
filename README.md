@@ -137,6 +137,20 @@ L'app compare ce qui est parti chez le client (montants, lignes, chantier, clien
 
 Le numéro de facture ne change pas — c'est la même facture, à sa deuxième version. Un troisième envoi donne la révision 3, et ainsi de suite. Tant que le renvoi n'est pas fait, la pastille rouge reste : impossible d'oublier qu'un client se promène avec le mauvais montant.
 
+## Numérotation : reprendre là où tu es rendu
+
+L'app retient **le plus haut numéro déjà utilisé**, pour les factures comme pour les devis, et donne toujours le suivant.
+
+- Elle lit les **derniers chiffres** d'un numéro, peu importe ce qu'il y a devant : `INVOICE0051`, `F-2026-051` et `51` valent tous 51. Une facture venue d'une autre application se range donc dans la suite.
+- **Supprimer une facture ne fait pas reculer le compteur.** Effacer la 52 ne redonne pas le numéro 52 à la suivante : deux factures au même numéro, c'est une erreur de livres.
+- Ça vaut pour toutes les portes d'entrée : facture créée dans l'app, **copie restaurée**, **synchro** qui ramène des documents d'un autre appareil, facture montée par l'**assistant**.
+- Si un numéro est déjà porté par un autre document, l'éditeur le dit en rouge sous le numéro.
+
+**Tu arrives d'une autre application ?** Deux façons :
+
+1. **Réglages → Numérotation** : entre le prochain numéro (« je suis rendu à 1043 »). L'app affiche aussitôt ce que donnera la prochaine facture. Elle refuse de descendre sous un numéro déjà utilisé et te dit lequel bloque.
+2. **Donne tes anciennes factures à l'assistant** (PDF ou photo) : il reprend **le numéro et la date d'origine** du document — c'est la même facture dans les livres du client — et le compteur se relève tout seul pour que la suivante vienne après.
+
 ## Rien ne se perd
 
 **Une facture en cours s'enregistre toute seule**, sans bouton à toucher :

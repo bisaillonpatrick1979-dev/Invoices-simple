@@ -5,8 +5,8 @@ import {
   Users, Package, ReceiptText, BarChart3, Settings as SettingsIcon, X, Sparkles, Eye
 } from 'lucide-react'
 import {
-  load, save, emptySettings, hasDraftContent, mergeItemsFromLines, mergeSettings,
-  migrateOldData, newDocument, nextNumber
+  load, save, countersFromDocs, emptySettings, hasDraftContent, mergeItemsFromLines,
+  mergeSettings, migrateOldData, newDocument, nextNumber
 } from './store.js'
 import { prepareItems } from './seed.js'
 import { DocumentList } from './lists.jsx'
@@ -125,6 +125,19 @@ function App() {
     return () => clearTimeout(t)
   }, [fresh.length ? fresh[0].id : 0])
 
+  // Où on est rendu dans la numérotation. Recalculé dès que la liste bouge :
+  // une facture créée, une copie restaurée, une synchro qui ramène des
+  // documents d'un autre appareil, une facture montée par l'assistant — tout
+  // passe par là. Le compteur ne redescend jamais, donc supprimer la dernière
+  // facture ne fait pas repartir le numéro en arrière.
+  useEffect(() => {
+    setSettings(s => {
+      const next = countersFromDocs(docs, s.counters)
+      if (next.invoice === (s.counters?.invoice || 0) && next.estimate === (s.counters?.estimate || 0)) return s
+      return { ...s, counters: next }
+    })
+  }, [docs])
+
   const touch = () => setDirty(n => n + 1)
   // Les écrans de listes reçoivent le vrai setter : on l'enveloppe pour savoir
   // qu'il y a du neuf à envoyer, sans rien changer à leur code.
@@ -234,6 +247,7 @@ function App() {
         settings={settings}
         clients={clients}
         items={items}
+        docs={docs}
         onSaveClient={upsertClient}
         onSaveItem={upsertItem}
         onChange={setEditing}
@@ -244,7 +258,7 @@ function App() {
           // peut-être déjà. Deux factures au même numéro, c'est une erreur de
           // livres. Le numéro est donc pris à la suite des factures, ici, où
           // la liste complète est connue.
-          const stored = upsertDoc({ ...inv, number: nextNumber(docs, 'invoice', settings.invoicePrefix) })
+          const stored = upsertDoc({ ...inv, number: nextNumber(docs, 'invoice', settings.invoicePrefix, settings.counters?.invoice || 0) })
           setTab('factures')
           setEditing(stored)
         }}

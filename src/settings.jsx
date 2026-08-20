@@ -1,6 +1,9 @@
 import React, { useState } from 'react'
-import { ArrowLeft, Cloud, Eye, HardDriveDownload, HardDriveUpload, Sparkles } from 'lucide-react'
-import { defaultWatermark, emptySettings, readImageFile, sampleDocument } from './store.js'
+import { ArrowLeft, Cloud, Eye, HardDriveDownload, HardDriveUpload, Hash, Sparkles } from 'lucide-react'
+import {
+  countersFromDocs, defaultWatermark, emptySettings, nextNumber, numberRank,
+  readImageFile, sampleDocument
+} from './store.js'
 import { AI_PROVIDERS, aiProvider, askAi } from './ai.js'
 import { applyBackup, backupCounts, downloadBackup, readBackupFile } from './backup.js'
 import { CloudSection } from './cloudui.jsx'
@@ -39,6 +42,34 @@ const dataUrlWeight = src => `${Math.round((String(src).length * 0.75) / 1024)} 
 export function SettingsScreen({ settings, setSettings, cloud, data, onBack }) {
   const { clients = [], items = [], expenses = [], docs = [] } = data || {}
   const [backupMsg, setBackupMsg] = useState(null)
+
+  // Le compteur réel : ce que les réglages retiennent, relevé par ce que les
+  // documents montrent. On n'affiche jamais un numéro que l'app ne donnerait
+  // pas vraiment.
+  const counters = countersFromDocs(docs, settings.counters)
+  const [nextInvoice, setNextInvoice] = useState(() => String(counters.invoice + 1))
+  const [nextEstimate, setNextEstimate] = useState(() => String(counters.estimate + 1))
+  const [floorTooLow, setFloorTooLow] = useState('')
+
+  // Reculer sous un numéro déjà porté referait des doublons : on le refuse et
+  // on dit lequel bloque.
+  const applyNext = (type, raw) => {
+    const wanted = Number(String(raw).replace(/[^\d]/g, '')) || 0
+    const used = Math.max(...docs.filter(d => d.docType === type).map(d => numberRank(d.number)), 0)
+    const set = type === 'invoice' ? setNextInvoice : setNextEstimate
+    if (wanted <= used) {
+      const blocking = docs
+        .filter(d => d.docType === type && numberRank(d.number) === used)
+        .map(d => d.number)[0]
+      setFloorTooLow(blocking || '')
+      set(String(used + 1))
+      setSettings({ ...settings, counters: { ...counters, [type]: used } })
+      return
+    }
+    setFloorTooLow('')
+    set(String(wanted))
+    setSettings({ ...settings, counters: { ...counters, [type]: wanted - 1 } })
+  }
 
   const saveCopy = () => {
     try {
@@ -239,6 +270,44 @@ export function SettingsScreen({ settings, setSettings, cloud, data, onBack }) {
           <Field label="Préfixe factures"><input value={settings.invoicePrefix} onChange={e => setSettings({ ...settings, invoicePrefix: e.target.value })}/></Field>
           <Field label="Préfixe devis"><input value={settings.estimatePrefix} onChange={e => setSettings({ ...settings, estimatePrefix: e.target.value })}/></Field>
         </div>
+      </div>
+
+      {/* Continuité de la numérotation. Une facture importée d'une autre
+          application, ou faite avant l'app, doit pousser le compteur : deux
+          factures au même numéro, c'est une erreur de livres — et un numéro
+          sauté fait tache dans une comptabilité. */}
+      <div className="edit-card padded">
+        <h2 className="section-title"><Hash size={17}/> Numérotation</h2>
+        <p className="hint small-note">
+          L'app retient le plus haut numéro déjà utilisé — le tien comme celui d'une facture
+          importée d'ailleurs — et continue après. Supprimer une facture ne fait pas reculer le
+          compteur. Si tu arrives d'une autre application, entre ici où tu es rendu.
+        </p>
+        <div className="pair">
+          <Field label="Prochaine facture">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={nextInvoice}
+              onChange={e => setNextInvoice(e.target.value.replace(/[^\d]/g, ''))}
+              onBlur={() => applyNext('invoice', nextInvoice)}
+            />
+          </Field>
+          <Field label="Prochain devis">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={nextEstimate}
+              onChange={e => setNextEstimate(e.target.value.replace(/[^\d]/g, ''))}
+              onBlur={() => applyNext('estimate', nextEstimate)}
+            />
+          </Field>
+        </div>
+        <p className="hint small-note">
+          Prochains numéros : <b>{nextNumber(docs, 'invoice', settings.invoicePrefix, counters.invoice)}</b>
+          {' '}et <b>{nextNumber(docs, 'estimate', settings.estimatePrefix, counters.estimate)}</b>.
+          {floorTooLow && <><br/><b className="warn-text">Impossible de descendre plus bas : {floorTooLow} est déjà utilisé.</b></>}
+        </p>
       </div>
 
       <div className="edit-card padded">
