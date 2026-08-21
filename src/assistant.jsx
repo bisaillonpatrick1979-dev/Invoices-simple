@@ -102,6 +102,21 @@ export function AssistantScreen({
   const inputRef = useRef(input)
   inputRef.current = input
 
+  // Le champ grandit avec ce qu'on dicte : sur un chantier, on veut relire la
+  // phrase au complet avant de l'envoyer, pas la deviner à travers une fente
+  // d'une ligne. Il s'arrête à la moitié de l'écran pour ne pas avaler la
+  // conversation.
+  const boxRef = useRef(null)
+  useEffect(() => {
+    const el = boxRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    const max = Math.round(window.innerHeight * 0.42)
+    el.style.height = `${Math.min(el.scrollHeight, max)}px`
+    // en dictée, on suit la fin de la phrase
+    if (el.scrollHeight > max) el.scrollTop = el.scrollHeight
+  }, [input])
+
   const dict = useDictation({
     lang: 'fr-CA',
     silenceMs: handsFree ? SILENCE_MS : 0,
@@ -448,6 +463,7 @@ export function AssistantScreen({
           <input type="file" accept="image/*,application/pdf,.pdf" multiple hidden onChange={addFiles}/>
         </label>
         <textarea
+          ref={boxRef}
           rows={1}
           placeholder="Parle ou écris…"
           value={input}

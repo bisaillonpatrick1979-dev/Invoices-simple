@@ -208,6 +208,13 @@ La transcription se fait **dans le navigateur** : ton micro n'est jamais envoyé
 
 La dictée sur un chantier est ce qu'elle est : l'assistant sait que « deux cent cinquante pieds carrés » veut dire 250 pi², que « piasses » parle d'argent, et qu'un nom de client mal transcrit ressemble sûrement à un client déjà enregistré.
 
+### Ce que tu dictes reste lisible
+
+Deux choses réglées pour la dictée sur un téléphone :
+
+- **Plus de bégaiement.** Chrome sur Android renvoie toute la phrase depuis le début à chaque mot reconnu, et redonne parfois la dernière phrase quand la reconnaissance se relance toute seule. L'app relit donc la session au complet à chaque fois au lieu d'ajouter le morceau reçu, et écrase un bloc de cinq mots ou plus redit deux fois de suite. Une répétition dite pour de vrai — « cent vingt pieds carrés, cent vingt pieds carrés de soffite » — passe intacte.
+- **La phrase se voit en entier.** Le champ grandit avec ce qu'on dicte, jusqu'à la moitié de l'écran : on relit avant d'envoyer, sans faire défiler une fente d'une ligne.
+
 ### Il suit la conversation
 
 Les derniers échanges repartent au modèle à chaque message : tu peux corriger sans tout redire.

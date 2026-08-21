@@ -21,6 +21,49 @@ const ERRORS = {
   network: "La transcription passe par Internet et la connexion a lâché."
 }
 
+// Recolle deux morceaux de transcription sans répéter ce qui est déjà là.
+// Android renvoie souvent toute la phrase depuis le début à chaque événement,
+// et redonne parfois la dernière phrase au redémarrage de la reconnaissance :
+// sans ce garde-fou, « donne-moi le total » devient « donne-moi le total
+// donne-moi le total donne-moi le total… ».
+// Écrase un morceau redit deux fois de suite : « donne-moi le total donne-moi
+// le total » redevient « donne-moi le total ». Cinq mots minimum — un bloc
+// plus court peut très bien être dit deux fois pour de vrai (« cent vingt
+// pieds carrés, cent vingt pieds carrés de soffite »), alors qu'un bégaiement
+// de machine reprend des phrases entières.
+export function collapseRepeats(text) {
+  const out = String(text || '').trim().split(/\s+/).filter(Boolean)
+  // une dictée n'est jamais longue à ce point : au-delà, c'est du bégaiement
+  if (out.length > 400) out.splice(0, out.length - 400)
+  for (let again = true; again;) {
+    again = false
+    for (let i = 0; i < out.length && !again; i++) {
+      for (let n = Math.floor((out.length - i) / 2); n >= 5; n--) {
+        const bloc = out.slice(i, i + n).join(' ').toLowerCase()
+        const suivant = out.slice(i + n, i + 2 * n).join(' ').toLowerCase()
+        if (bloc === suivant) {
+          out.splice(i + n, n)
+          again = true
+          break
+        }
+      }
+    }
+  }
+  return out.join(' ')
+}
+
+export const joinSpeech = (a, b) => {
+  const left = String(a || '').trim()
+  const right = String(b || '').trim()
+  if (!right) return left
+  if (!left) return collapseRepeats(right)
+  const l = left.toLowerCase()
+  const r = right.toLowerCase()
+  if (l.endsWith(r)) return left        // on nous redonne ce qu'on a déjà
+  if (r.startsWith(l)) return collapseRepeats(right)  // tout depuis le début
+  return collapseRepeats(`${left} ${right}`)
+}
+
 // Dictée continue. `text` s'accumule au fil des phrases terminées, `interim`
 // est ce que le navigateur est en train d'entendre.
 //
@@ -35,6 +78,11 @@ export function useDictation({ lang = 'fr-CA', silenceMs = 0, onSilence } = {}) 
 
   const recRef = useRef(null)
   const wantedRef = useRef(false)     // la personne veut-elle toujours dicter
+  // Ce qui est acquis des sessions précédentes, et ce que la session en cours
+  // a donné. La session en cours est TOUJOURS relue en entier : c'est ce qui
+  // rend la dictée insensible aux navigateurs qui renvoient tout à chaque fois.
+  const baseRef = useRef('')
+  const sessionRef = useRef('')
   const timerRef = useRef(null)
   const silenceRef = useRef(silenceMs)
   const cbRef = useRef(onSilence)
@@ -64,6 +112,8 @@ export function useDictation({ lang = 'fr-CA', silenceMs = 0, onSilence } = {}) 
   }, [])
 
   const reset = useCallback(() => {
+    baseRef.current = ''
+    sessionRef.current = ''
     setText('')
     setInterim('')
     clearTimer()
@@ -76,6 +126,8 @@ export function useDictation({ lang = 'fr-CA', silenceMs = 0, onSilence } = {}) 
     }
     if (wantedRef.current) return
     setError('')
+    baseRef.current = ''
+    sessionRef.current = ''
     setText('')
     setInterim('')
 
@@ -85,13 +137,19 @@ export function useDictation({ lang = 'fr-CA', silenceMs = 0, onSilence } = {}) 
     rec.interimResults = true
 
     rec.onresult = e => {
+      // On relit la session au complet plutôt que d'ajouter le morceau reçu.
+      // Ajouter suppose que le navigateur n'envoie que du nouveau — ce que
+      // Chrome sur Android ne fait pas : il renvoie toute la phrase à chaque
+      // événement, et le texte se répétait une fois par mot prononcé.
       let done = '', pending = ''
-      for (let i = e.resultIndex; i < e.results.length; i++) {
+      for (let i = 0; i < e.results.length; i++) {
         const r = e.results[i]
-        if (r.isFinal) done += r[0].transcript
-        else pending += r[0].transcript
+        const said = r[0]?.transcript || ''
+        if (r.isFinal) done += `${said} `
+        else pending += `${said} `
       }
-      if (done.trim()) setText(t => (t ? `${t} ${done.trim()}` : done.trim()))
+      sessionRef.current = done.trim()
+      setText(joinSpeech(baseRef.current, sessionRef.current))
       setInterim(pending.trim())
       armSilence()
     }
@@ -110,6 +168,10 @@ export function useDictation({ lang = 'fr-CA', silenceMs = 0, onSilence } = {}) 
       // Le navigateur coupe de lui-même après quelques secondes de silence :
       // tant qu'on n'a pas appuyé sur stop, on relance.
       if (wantedRef.current) {
+        // La prochaine session repart d'une liste vide côté navigateur : on
+        // fige ce qu'elle vient de donner avant de relancer.
+        baseRef.current = joinSpeech(baseRef.current, sessionRef.current)
+        sessionRef.current = ''
         try { rec.start() } catch { /* déjà repartie */ }
         return
       }
