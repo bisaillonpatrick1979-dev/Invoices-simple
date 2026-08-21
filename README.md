@@ -151,6 +151,24 @@ L'app retient **le plus haut numéro déjà utilisé**, pour les factures comme 
 1. **Réglages → Numérotation** : entre le prochain numéro (« je suis rendu à 1043 »). L'app affiche aussitôt ce que donnera la prochaine facture. Elle refuse de descendre sous un numéro déjà utilisé et te dit lequel bloque.
 2. **Donne tes anciennes factures à l'assistant** (PDF ou photo) : il reprend **le numéro et la date d'origine** du document — c'est la même facture dans les livres du client — et le compteur se relève tout seul pour que la suivante vienne après.
 
+## Nouvel appareil, ou app qui paraît vide
+
+Deux choses expliquent presque toujours une app « vide » sur une tablette ou un deuxième téléphone.
+
+**1. L'adresse.** Le navigateur range les données **par adresse**. `invoices-simple.vercel.app` et `invoices-simple-ixjtuo8us-…vercel.app` sont deux réserves séparées, même si c'est la même app. L'adresse à garder, celle qui ne change jamais d'un déploiement à l'autre :
+
+> **invoices-simple.vercel.app**
+
+Les adresses du genre `invoices-simple-<jeton>-…` sont celles d'une mise en ligne précise : elles changent à la suivante. L'app te le dit maintenant elle-même — un bandeau jaune **« Adresse temporaire »** s'affiche avec un bouton pour ouvrir la bonne adresse.
+
+**2. La connexion au nuage.** Le nuage ne descend pas tout seul sur un appareil neuf : tant qu'il n'est pas connecté au compte, il ne sait pas qu'il y a des factures à ramener. Sur un appareil vide et déconnecté, un bandeau **« Rien sur cet appareil »** propose d'aller se connecter. Une fois connecté avec **le même courriel**, tout redescend en une synchro : factures, clients, articles, réglages.
+
+Les deux bandeaux se ferment d'une touche et ne reviennent plus.
+
+### Et les redéploiements ?
+
+Un redéploiement à la **même adresse** ne touche à rien : ni au navigateur, ni au nuage. Ce qui fait perdre des données, c'est de travailler sur une adresse de déploiement qui, elle, disparaît. Garde `invoices-simple.vercel.app`, reste connecté à la sauvegarde infonuagique, et rien ne bouge — même si l'app est redéployée dix fois par jour.
+
 ## Rien ne se perd
 
 **Une facture en cours s'enregistre toute seule**, sans bouton à toucher :

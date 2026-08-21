@@ -18,6 +18,7 @@ import { AiFab, AssistantScreen } from './assistant.jsx'
 import { useCloudSync } from './cloudui.jsx'
 import { agoFr, CHANNELS, lastSeenView, markViewsSeen, newViews, pullShareActivity, shareState } from './share.js'
 import { SharedInvoice, shareTokenFromUrl } from './shared.jsx'
+import { HostNotice, hostNotice, SignInNotice } from './notices.jsx'
 import './styles.css'
 
 // Une modification n'est pas envoyée tout de suite : sur un chantier, on
@@ -69,6 +70,11 @@ function App() {
   // pour que la pastille « Vue » soit là même sans réseau.
   const [shares, setShares] = useState(shareState)
   const [seenView, setSeenView] = useState(lastSeenView)
+  // Avis d'adresse et invitation à se connecter : écartés une fois, ils ne
+  // reviennent pas harceler à chaque ouverture.
+  const [hostOff, setHostOff] = useState(() => load('is_host_notice_off', false))
+  const [signInOff, setSignInOff] = useState(() => load('is_signin_notice_off', false))
+  const badHost = hostNotice()
 
   useEffect(() => save('is_settings', settings), [settings])
   useEffect(() => save('is_clients', clients), [clients])
@@ -293,6 +299,22 @@ function App() {
   return (
     <div className="app">
       <div className="phone">{screen}</div>
+
+      {/* Les avis se posent sous la barre du haut, du plus important au moins
+          pressant : d'abord l'adresse (c'est elle qui fait qu'une app paraît
+          vide), puis la connexion au nuage, puis les ouvertures de factures. */}
+      <div className="notice-stack no-print" style={{ top: toastTop }}>
+        {badHost && !hostOff && <HostNotice
+          notice={badHost}
+          onDismiss={() => { save('is_host_notice_off', true); setHostOff(true) }}
+        />}
+
+        {/* Appareil neuf : rien en mémoire, personne de connecté. */}
+        {!cloud.user && !signInOff && docs.length === 0 && clients.length === 0 && <SignInNotice
+          onOpenSettings={() => { setPlusOpen(false); setAiOpen(false); setEditing(null); setTab('settings') }}
+          onDismiss={() => { save('is_signin_notice_off', true); setSignInOff(true) }}
+        />}
+      </div>
 
       {/* Un client vient d'ouvrir sa facture : on le dit tout de suite, où
           qu'on soit dans l'app. Une touche ouvre la facture en question. */}
