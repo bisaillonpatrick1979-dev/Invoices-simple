@@ -12,7 +12,7 @@ import {
 import { canSharePdf, downloadPdf, sharePdf } from './pdf.js'
 import {
   agoFr, channelLabel, channelsOf, fmtViewedAt, publishShare, restoreShare,
-  revokeShare, seenCurrent, shareUrl
+  revokeShare, seenCurrent, shareUrl, tokenFor
 } from './share.js'
 import { AppBar, NumField } from './lists.jsx'
 import { InvoicePaper } from './paper.jsx'
@@ -131,44 +131,55 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
   // envoi : celui que le client a déjà reçu montre toujours la bonne version.
   const chans = channelsOf(share)
 
-  const withLink = async (channel, dest, label, markAsSent) => {
-    const next = markAsSent ? withEvent(markSent(doc), sendLabel(label)) : doc
-    const { token, url } = await publishShare(next, settings, channel, dest)
-    persist({ ...next, shareTokens: { ...(next.shareTokens || {}), [channel]: token } })
-    onShareChange?.()
-    return { url, doc: next }
-  }
+  // Ce qui est vraiment parti DE l'app. Enregistrer un PDF ou marquer une
+  // facture à la main n'envoie rien : la carte doit le montrer, sinon on croit
+  // avoir envoyé une correction qui dort encore dans le téléphone.
+  const SENT_EVENT = /^(Lien envoyé|Envoyée par|PDF partagé)/
+  const lastSend = [...(doc.history || [])].reverse().find(h => SENT_EVENT.test(h.label))
+  const sendAfterFix = lastSend && doc.sentAt ? lastSend.at >= doc.sentAt : false
 
-  const sendLink = async via => {
-    // On vérifie avant de publier : rien ne doit changer d'état si le message
-    // ne peut même pas partir.
+  // Le jeton est tiré ici, sans réseau : le message peut donc partir dans la
+  // foulée du doigt, lien compris. La publication suit en arrière-plan — si
+  // elle échoue, on le dit franchement au lieu de laisser croire que la
+  // facture est en ligne.
+  const publishInBackground = (next, channel, dest, token) =>
+    publishShare(next, settings, channel, dest, token)
+      .then(() => { onShareChange?.(); setLinkNote('') })
+      .catch(e => setShareError(
+        `Le message est parti, mais le lien n'a pas pu être mis en ligne : ${String(e?.message || e)} ` +
+        'Ouvre la facture une fois connecté et touche « Copier le lien » pour le republier.'
+      ))
+
+  const sendLink = via => {
+    // On vérifie avant tout : rien ne doit changer d'état si le message ne
+    // peut même pas partir.
     if (via === 'sms' && !doc.client.phone?.trim())
       return setShareError('Ajoute un numéro de téléphone au client avant d’envoyer par texto.')
     if (via === 'mail' && !doc.client.email?.trim())
       return setShareError('Ajoute une adresse email au client avant d’envoyer.')
+
+    const channel = via === 'sms' ? 'sms' : 'mail'
+    const dest = via === 'sms' ? doc.client.phone.trim() : doc.client.email.trim()
+    const token = tokenFor(doc, channel, share ? { [doc.id]: share } : null)
+    const url = shareUrl(token)
+    const sent = withEvent(markSent(doc), sendLabel(
+      via === 'sms' ? `Lien envoyé par texto (${dest})` : `Lien envoyé par courriel (${dest})`
+    ))
+    const totalsNow = calcTotals(sent)
+
     setSendOpen(false)
-    setLinkBusy(via)
     setLinkNote('')
-    try {
-      const dest = via === 'sms' ? doc.client.phone.trim() : doc.client.email.trim()
-      const { url, doc: sent } = await withLink(
-        via === 'sms' ? 'sms' : 'mail',
-        dest,
-        via === 'sms' ? `Lien envoyé par texto (${dest})` : `Lien envoyé par courriel (${dest})`,
-        true
-      )
-      const totalsNow = calcTotals(sent)
-      if (via === 'sms') {
-        window.location.href = `sms:${sent.client.phone}?&body=${encodeURIComponent(buildSmsBody(settings, sent, totalsNow, url))}`
-      } else {
-        const subject = encodeURIComponent(`${sent.number} - ${settings.business.name}`)
-        window.location.href = `mailto:${sent.client.email}?subject=${subject}&body=${encodeURIComponent(buildEmailBody(settings, sent, totalsNow, url))}`
-      }
-    } catch (e) {
-      setShareError(String(e?.message || e))
-    } finally {
-      setLinkBusy('')
+    persist({ ...sent, shareTokens: { ...(sent.shareTokens || {}), [channel]: token } })
+
+    // ouvrir l'app de messagerie tout de suite, tant que le geste est « frais »
+    if (via === 'sms') {
+      window.location.href = `sms:${dest}?&body=${encodeURIComponent(buildSmsBody(settings, sent, totalsNow, url))}`
+    } else {
+      const subject = encodeURIComponent(`${sent.number} - ${settings.business.name}`)
+      window.location.href = `mailto:${dest}?subject=${subject}&body=${encodeURIComponent(buildEmailBody(settings, sent, totalsNow, url))}`
     }
+
+    publishInBackground(sent, channel, dest, token)
   }
 
   const copyLink = async () => {
@@ -249,6 +260,11 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
     // la bonne version : le bouton sert alors à confirmer le renvoi, pas à
     // défaire l'envoi.
     const sent = doc.status === 'sent' && !revised
+    // Marquer une correction comme renvoyée sans l'avoir envoyée, c'est
+    // laisser le client avec l'ancien montant en croyant l'avoir corrigé.
+    if (revised && !confirm(
+      "Ce bouton n'envoie rien.\n\nIl sert à noter que tu as déjà renvoyé la facture corrigée toi-même (courriel, texto, en main propre).\n\nEst-elle vraiment partie chez le client ?"
+    )) return
     persist(withEvent(
       sent ? { ...doc, status: 'draft' } : markSent(doc),
       sent ? 'Remise en cours' : sendLabel(revised ? 'Marquée comme renvoyée' : 'Marquée comme envoyée')
@@ -344,6 +360,9 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
       <b>Version envoyée le {fmtStamp(doc.sentAt)} — modifiée depuis</b>
       <span>Le client a encore l'ancien montant. Renvoie la facture : elle partira
       en révision {Number(doc.revision || 1) + 1} et annulera la précédente, écrit noir sur blanc dessus.</span>
+      <button className="banner-btn" onClick={() => setSendOpen(true)}>
+        <Send size={15}/> Renvoyer maintenant
+      </button>
     </div>}
 
     {view === 'edit' && <div className="editor-body no-print">
@@ -538,6 +557,15 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
           <b>Liens de facture</b>
         </div>
 
+        <p className={`track-line ${lastSend ? '' : 'none'}`}>
+          {lastSend
+            ? <><CheckCheck size={15}/> Dernier envoi depuis l'app : {lastSend.label.replace(/ —.*$/, '')} — {agoFr(lastSend.at)}</>
+            : <><Eye size={15}/> Rien n'est encore parti depuis l'app pour cette facture.</>}
+        </p>
+        {revised && <p className="track-warn">
+          La correction n'est pas partie : « Marquer comme renvoyée » ne poste rien. Utilise « Renvoyer » pour que le client reçoive la nouvelle version.
+        </p>}
+
         {chans.length === 0 && <p className="hint small-note">
           Envoie le lien plutôt que le fichier : la facture s'ouvre dans le navigateur du destinataire,
           et l'app te dit qui l'a lue. Le courriel et le texto ont chacun le leur, donc tu sais lequel
@@ -572,8 +600,14 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
 
       {/* L'état se lit dans la liste : ces deux boutons sont ce qui le change
           à la main, quand l'envoi ou le paiement s'est fait hors de l'app. */}
-      {isInvoice && status !== 'paid' && <button className="outline-btn" onClick={toggleSent}>
-        {revised ? 'Marquer comme renvoyée' : doc.status === 'sent' ? 'Remettre « en cours »' : 'Marquer comme envoyée'}
+      {/* Ce bouton ne poste rien : il note un envoi fait autrement. Sans le
+          dire, on croit avoir envoyé la facture alors que rien n'est parti —
+          c'est arrivé, et le client a attendu un document qui n'existait pas. */}
+      {isInvoice && status !== 'paid' && <button className="outline-btn with-note" onClick={toggleSent}>
+        <b>{revised ? 'Marquer comme renvoyée' : doc.status === 'sent' ? 'Remettre « en cours »' : 'Marquer comme envoyée'}</b>
+        <small>{doc.status === 'sent' && !revised
+          ? "Annule l'état « envoyée » — n'écrit à personne"
+          : "N'envoie rien : à utiliser quand la facture est partie autrement (en main propre, d'un autre appareil)"}</small>
       </button>}
       {isInvoice && totals.balance > 0.005 && totals.total > 0 &&
         <button className="outline-btn" onClick={markPaid}>Marquer comme payée</button>}

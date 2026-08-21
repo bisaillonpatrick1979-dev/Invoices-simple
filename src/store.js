@@ -333,33 +333,53 @@ export function calcTotals(doc) {
 }
 
 // Texte du courriel envoyé au client — partagé par l'éditeur et l'assistant
+// Le courriel préparé pour le client.
+//
+// Deux formes, et l'ordre compte : les applications de courriel des téléphones
+// coupent un message trop long quand il leur arrive par un lien « mailto ».
+// Ce qui doit survivre à la coupure, c'est le moyen d'obtenir la facture — le
+// lien passe donc juste après le bonjour, avant le détail. Sans lien, on
+// détaille, parce que le message est alors tout ce que le client recevra.
 export function buildEmailBody(settings, doc, totals, link = '') {
-  const b = settings.business
+  const b = settings.business || {}
   const kind = doc.docType === 'invoice' ? 'facture' : 'devis'
-  const lineText = doc.lines
+  const note = revisionNote(doc)
+  // `null` = ligne à retirer ; `''` = ligne vide voulue, qui aère le message
+  const monter = parts => parts.filter(x => x !== null && x !== undefined).join('\n')
+
+  const tete = [
+    `Bonjour ${doc.client?.name || ''},`.trim(),
+    '',
+    `Voici votre ${kind} ${doc.number} — ${money(totals.total)}.`,
+    note ? `${note}. Merci de ne tenir compte que de celle-ci ; la précédente est annulée.` : null,
+    doc.siteAddress ? `Travaux au : ${doc.siteAddress}` : null
+  ]
+
+  const pied = ['', 'Merci,', b.name || null, b.phone || null, b.email || null]
+
+  if (link) {
+    return monter([...tete, '', 'Voir la facture et télécharger le PDF :', link, ...pied])
+  }
+
+  const lignes = (doc.lines || [])
     .filter(l => l.description || l.qty || l.rate)
     .map(l => `- ${l.description || 'Article'} | ${l.qty || 0} ${l.unit || ''} x ${money(l.rate)} = ${money(lineTotal(l))}`)
-    .join('\n')
-  return (
-`Bonjour ${doc.client.name || ''},
 
-Voici votre ${kind} ${doc.number}.
-${revisionNote(doc) ? `\n${revisionNote(doc)}. Merci de ne tenir compte que de celle-ci ; la précédente est annulée.\n` : ''}${doc.siteAddress ? `\nTravaux au : ${doc.siteAddress}\n` : ''}
-${lineText || 'Détails à venir.'}
-
-Sous-total : ${money(totals.subtotal)}
-Remise : -${money(totals.discount)}
-${settings.taxLabel} (${doc.taxRate}%) : ${money(totals.tax)}
-Total : ${money(totals.total)}
-${totals.paid > 0 ? `Paiements : ${money(totals.paid)}\nSolde dû : ${money(totals.balance)}\n` : ''}
-${link
-  ? `Voir la facture et télécharger le PDF :\n${link}\n`
-  : `Note : pour joindre le PDF, utilisez « Envoyer le PDF » depuis l'application — ce message-ci ne transporte que le texte.`}
-
-Merci,
-${b.name}
-${b.phone || ''}
-${b.email || ''}`)
+  return monter([
+    ...tete,
+    '',
+    ...(lignes.length ? lignes : ['Détails à venir.']),
+    '',
+    `Sous-total : ${money(totals.subtotal)}`,
+    totals.discount > 0 ? `Remise : -${money(totals.discount)}` : null,
+    doc.chargeTax ? `${settings.taxLabel} (${doc.taxRate}%) : ${money(totals.tax)}` : null,
+    `Total : ${money(totals.total)}`,
+    totals.paid > 0 ? `Paiements : ${money(totals.paid)}` : null,
+    totals.paid > 0 ? `Solde dû : ${money(totals.balance)}` : null,
+    '',
+    'Ce message ne transporte que du texte : pour recevoir le PDF ou la facture en ligne, utilise « Texto avec le lien » ou « Courriel avec le lien ».',
+    ...pied
+  ])
 }
 
 // Le texto dit l'essentiel, avec le chantier et le numéro de la compagnie :

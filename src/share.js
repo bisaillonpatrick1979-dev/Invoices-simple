@@ -69,20 +69,29 @@ const requireUser = async db => {
   return user
 }
 
+// Le jeton d'un canal, tout de suite et sans réseau : celui que la facture
+// porte déjà, sinon celui que la dernière synchro a rapporté, sinon un neuf.
+//
+// Tiré sur l'appareil, il permet d'ouvrir l'app de courriel dans la foulée du
+// doigt, avec le lien déjà dans le message. Attendre le serveur avant
+// d'ouvrir, c'était risquer que le téléphone refuse l'ouverture — et un
+// courriel parti sans son lien.
+export function tokenFor(doc, channel, state) {
+  return doc?.shareTokens?.[channel] ||
+    state?.[doc?.id]?.[channel]?.token ||
+    // liens créés avant qu'il y ait des canaux : ils deviennent le lien copié
+    (channel === 'lien' ? doc?.shareToken : '') ||
+    newToken()
+}
+
 // Publie (ou met à jour) le lien d'une facture et retourne son adresse.
 // Rappelée à chaque envoi : le lien ne change pas, son contenu suit.
-export async function publishShare(doc, settings, channel = 'lien', label = '') {
+export async function publishShare(doc, settings, channel = 'lien', label = '', knownToken = '') {
   const db = cloud()
   if (!db) throw new Error("La sauvegarde infonuagique n'est pas configurée.")
   const user = await requireUser(db)
 
-  // le jeton déjà attribué à ce canal a la priorité, d'où qu'il vienne : un
-  // lien envoyé au client ne doit jamais cesser de fonctionner
-  const { data: existing } = await db.from('shares')
-    .select('token').eq('doc_id', doc.id).eq('channel', channel).maybeSingle()
-  const token = existing?.token || doc.shareTokens?.[channel] ||
-    // liens créés avant qu'il y ait des canaux : ils deviennent le lien copié
-    (channel === 'lien' ? doc.shareToken : '') || newToken()
+  const token = knownToken || tokenFor(doc, channel, shareState())
 
   const { error } = await db.from('shares').upsert({
     token,
@@ -100,6 +109,20 @@ export async function publishShare(doc, settings, channel = 'lien', label = '') 
     updated_at: new Date().toISOString()
   }, { onConflict: 'token' })
   if (error) throw error
+
+  // Les liens déjà partis pour cette facture montrent la même version que
+  // celui-ci : c'est ce qui fait qu'une correction remplace vraiment ce que le
+  // client a entre les mains, quel que soit le lien qu'il rouvre.
+  const { error: syncErr } = await db.from('shares')
+    .update({
+      doc: docForShare(doc),
+      business: brandForShare(settings),
+      revision: revisionInfo(doc)?.n || Number(doc.revision || 1),
+      updated_at: new Date().toISOString()
+    })
+    .eq('doc_id', doc.id)
+    .neq('token', token)
+  if (syncErr) throw syncErr
 
   return { token, channel, url: shareUrl(token) }
 }
@@ -148,7 +171,11 @@ export async function pullShareActivity() {
 
   const byToken = new Map()
   const state = {}
-  for (const s of shares || []) {
+  // Plusieurs jetons peuvent exister pour un même canal (deux appareils, deux
+  // envois) : c'est le plus récent qui représente le canal, les autres restent
+  // valides et pointent sur la même facture.
+  const ordered = [...(shares || [])].sort((a, b) => String(a.updated_at || '').localeCompare(String(b.updated_at || '')))
+  for (const s of ordered) {
     const channel = s.channel || 'lien'
     byToken.set(s.token, { docId: s.doc_id, channel })
     state[s.doc_id] = state[s.doc_id] || {}
