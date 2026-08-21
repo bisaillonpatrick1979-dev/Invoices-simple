@@ -5,9 +5,9 @@ import {
   Share2, Download, Link2, Copy, EyeOff, CheckCheck
 } from 'lucide-react'
 import {
-  buildEmailBody, buildSmsBody, calcTotals, docStatus, duplicateNumber, fmtDate, fmtStamp, isRevised,
-  lineTotal, markSent, money, newLine, parseNum, suggestItems, uid,
-  today, emptyClient, withEvent, UNITS
+  buildEmailBody, buildSmsBody, calcTotals, docStatus, duplicateNumber, fmtDate, fmtStamp,
+  isRevised, lineTotal, markSent, money, newLine, parseNum, SENT_EVENT,
+  suggestItems, uid, today, emptyClient, withEvent, UNITS
 } from './store.js'
 import { canSharePdf, downloadPdf, sharePdf } from './pdf.js'
 import {
@@ -134,9 +134,7 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
   // Ce qui est vraiment parti DE l'app. Enregistrer un PDF ou marquer une
   // facture à la main n'envoie rien : la carte doit le montrer, sinon on croit
   // avoir envoyé une correction qui dort encore dans le téléphone.
-  const SENT_EVENT = /^(Lien envoyé|Envoyée par|PDF partagé)/
-  const lastSend = [...(doc.history || [])].reverse().find(h => SENT_EVENT.test(h.label))
-  const sendAfterFix = lastSend && doc.sentAt ? lastSend.at >= doc.sentAt : false
+  const lastSend = [...(doc.history || [])].reverse().find(h => SENT_EVENT.test(h.label || ''))
 
   // Le jeton est tiré ici, sans réseau : le message peut donc partir dans la
   // foulée du doigt, lien compris. La publication suit en arrière-plan — si

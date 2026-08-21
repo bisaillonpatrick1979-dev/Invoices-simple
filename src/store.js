@@ -428,6 +428,15 @@ const clientFacing = doc => JSON.stringify({
   paymentInfo: doc.paymentInfo
 })
 
+// Ce qui, dans l'historique, veut dire « c'est parti chez le client ».
+// Enregistrer un PDF ou marquer une facture à la main n'en fait pas partie.
+export const SENT_EVENT = /^(Lien envoyé|Envoyée par|PDF partagé)/
+
+export const lastSendAt = doc => {
+  const h = [...(doc?.history || [])].reverse().find(x => SENT_EVENT.test(x.label || ''))
+  return h?.at || ''
+}
+
 // Une facture partie, puis retouchée : le client a une version périmée.
 export const isRevised = doc =>
   doc.status === 'sent' && !!doc.sentStamp && clientFacing(doc) !== doc.sentStamp
@@ -435,7 +444,12 @@ export const isRevised = doc =>
 // À l'envoi : on retient ce qui est parti, et on numérote la révision. Un
 // deuxième envoi après correction devient la révision 2.
 export function markSent(doc) {
-  const again = !!doc.sentStamp && clientFacing(doc) !== doc.sentStamp
+  const suivi = !!doc.sentStamp
+  // Facture partie avant que l'app ne retienne ce qu'elle envoyait : on ne
+  // sait pas ce que le client a reçu, mais l'historique dit qu'il a reçu
+  // quelque chose. Le nouvel envoi remplace donc cet envoi-là.
+  const ancienEnvoi = !suivi && doc.status === 'sent' ? lastSendAt(doc) : ''
+  const again = suivi ? clientFacing(doc) !== doc.sentStamp : !!ancienEnvoi
   return {
     ...doc,
     status: 'sent',
@@ -443,7 +457,7 @@ export function markSent(doc) {
     sentAt: new Date().toISOString(),
     // la version d'avant reste inscrite sur le PDF : c'est elle que la
     // nouvelle annule
-    replacesAt: again ? doc.sentAt || '' : doc.replacesAt || '',
+    replacesAt: again ? (suivi ? doc.sentAt || '' : ancienEnvoi) : doc.replacesAt || '',
     revision: again ? Number(doc.revision || 1) + 1 : Number(doc.revision || 1)
   }
 }
