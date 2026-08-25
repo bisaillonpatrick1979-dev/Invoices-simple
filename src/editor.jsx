@@ -306,6 +306,25 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
     onConvert(inv)
   }
 
+  // Une facture garde une COPIE du client, figée à sa création : c'est ce qui
+  // permet de rouvrir une vieille facture telle qu'elle est partie. Revers de
+  // la médaille, un numéro ajouté au carnet après coup n'y apparaît pas. On le
+  // propose donc, sans jamais l'imposer.
+  const CONTACT_FIELDS = [
+    ['phone', 'téléphone'],
+    ['phone2', '2e téléphone'],
+    ['email', 'courriel'],
+    ['address', 'adresse'],
+    ['city', 'ville']
+  ]
+  const bookClient = clients.find(c => c.id === doc.clientId)
+  const missingFromDoc = bookClient
+    ? CONTACT_FIELDS.filter(([k]) => String(bookClient[k] || '').trim() && !String(doc.client?.[k] || '').trim())
+    : []
+
+  const pullFromBook = () =>
+    setClient(Object.fromEntries(missingFromDoc.map(([k]) => [k, bookClient[k]])))
+
   const selectClient = id => {
     const c = clients.find(x => x.id === id)
     set({ clientId: id, client: c ? { ...c } : { ...emptyClient } })
@@ -408,6 +427,9 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
           />
           <input placeholder="Adresse" value={doc.client.address} onChange={e => setClient({ address: e.target.value })}/>
           <input placeholder="Ville" value={doc.client.city} onChange={e => setClient({ city: e.target.value })}/>
+          {missingFromDoc.length > 0 && <button className="link-btn" onClick={pullFromBook}>
+            Reprendre du carnet : {missingFromDoc.map(([, nom]) => nom).join(', ')}
+          </button>}
           <button className="link-btn" onClick={saveClientToBook}>Sauvegarder ce client en mémoire</button>
         </div>}
       </div>
