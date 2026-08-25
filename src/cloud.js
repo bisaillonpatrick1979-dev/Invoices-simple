@@ -99,8 +99,20 @@ const settingsForCloud = s => ({ ...s, ai: { ...(s.ai || {}), apiKey: '' } })
 const COLLECTIONS = {
   clients: {
     table: 'clients',
-    toRow: c => ({ id: c.id, name: nul(c.name), phone: nul(c.phone), phone2: nul(c.phone2), email: nul(c.email), address: nul(c.address), city: nul(c.city), notes: nul(c.notes) }),
-    fromRow: r => ({ id: r.id, name: r.name || '', phone: r.phone || '', phone2: r.phone2 || '', email: r.email || '', address: r.address || '', city: r.city || '', notes: r.notes || '' })
+    toRow: c => ({
+      id: c.id, name: nul(c.name),
+      phone: nul(c.phone), phone_name: nul(c.phoneName),
+      phone2: nul(c.phone2), phone2_name: nul(c.phone2Name),
+      email: nul(c.email), email_name: nul(c.emailName),
+      address: nul(c.address), city: nul(c.city), notes: nul(c.notes)
+    }),
+    fromRow: r => ({
+      id: r.id, name: r.name || '',
+      phone: r.phone || '', phoneName: r.phone_name || '',
+      phone2: r.phone2 || '', phone2Name: r.phone2_name || '',
+      email: r.email || '', emailName: r.email_name || '',
+      address: r.address || '', city: r.city || '', notes: r.notes || ''
+    })
   },
   items: {
     table: 'items',

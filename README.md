@@ -101,7 +101,9 @@ Le bouton **Envoyer** ouvre un panneau en trois sections, qui tient dans l'écra
 
 Le destinataire reçoit une adresse du genre `invoices-simple.vercel.app/f/wkLA8tdPctk…` : il touche, la facture s'ouvre dans son navigateur, avec un bouton **Télécharger le PDF**. Pas de compte, pas d'application à installer.
 
-**Un lien par destinataire.** Le courriel part à l'administration, le texto au contremaître, et un **deuxième texto** au bureau si le client a deux numéros : ce sont autant de liens différents pour la même facture. C'est ce qui permet à l'app de dire **lequel des deux a lu** — « courriel lu il y a 3 min, texto pas encore ouvert » — plutôt qu'un vague « quelqu'un a ouvert ». Chaque lien porte l'adresse ou le numéro auquel il est parti, et se coupe séparément.
+**Un lien par destinataire.** Le courriel part à l'administration, le texto au contremaître, et un **deuxième texto** au bureau si le client a deux numéros : ce sont autant de liens différents pour la même facture.
+
+Chaque coordonnée porte le **nom de la personne** derrière (Mathieu, Mélissa, l'administration…). Le panneau d'envoi affiche « Texto — Mélissa » avec le numéro dessous, et l'avis d'ouverture dit « **Mélissa a ouvert le texto** — INVOICE0001 » plutôt qu'un vague « 2e numéro ». Le nom se met dans le carnet (Plus → Clients) ou directement sur la facture. C'est ce qui permet à l'app de dire **lequel des deux a lu** — « courriel lu il y a 3 min, texto pas encore ouvert » — plutôt qu'un vague « quelqu'un a ouvert ». Chaque lien porte l'adresse ou le numéro auquel il est parti, et se coupe séparément.
 
 Ce que l'app affiche ensuite :
 

@@ -142,8 +142,23 @@ export const fileWeight = bytes =>
   bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} Mo` : `${Math.max(1, Math.round(bytes / 1024))} ko`
 
 // `phone2` : le deuxième numéro, quand la facture doit partir à deux endroits
-// — le contremaître sur le chantier et l'administration au bureau.
-export const emptyClient = { id: '', name: '', phone: '', phone2: '', email: '', address: '', city: '', notes: '' }
+// — le contremaître sur le chantier et l'administration au bureau. Chaque
+// coordonnée porte le nom de la personne derrière : « Texto à Mélissa » se
+// lit, « Texto au 2e numéro » se devine.
+export const emptyClient = {
+  id: '', name: '',
+  phone: '', phoneName: '',
+  phone2: '', phone2Name: '',
+  email: '', emailName: '',
+  address: '', city: '', notes: ''
+}
+
+// « Mélissa · 1-780-972-4469 », ou le numéro seul si personne n'est nommé.
+export const contactLabel = (name, value) => {
+  const n = String(name || '').trim()
+  const v = String(value || '').trim()
+  return n && v ? `${n} · ${v}` : v || n
+}
 export const emptyItem = { id: '', description: '', unit: 'ea', rate: 0, taxable: true }
 export const emptyExpense = { id: '', date: '', description: '', category: 'Matériel', amount: 0 }
 

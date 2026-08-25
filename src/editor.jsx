@@ -5,7 +5,7 @@ import {
   Share2, Download, Link2, Copy, EyeOff, CheckCheck
 } from 'lucide-react'
 import {
-  buildEmailBody, buildSmsBody, calcTotals, docStatus, duplicateNumber, fmtDate, fmtStamp,
+  buildEmailBody, buildSmsBody, calcTotals, contactLabel, docStatus, duplicateNumber, fmtDate, fmtStamp,
   isRevised, lineTotal, markSent, money, newLine, parseNum, SENT_EVENT,
   suggestItems, uid, today, emptyClient, withEvent, UNITS
 } from './store.js'
@@ -161,10 +161,15 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
 
     const channel = parTexto ? via : 'mail'
     const dest = parTexto ? numero.trim() : doc.client.email.trim()
+    // l'étiquette du lien porte le nom : « Mélissa · 1-780-972-4469 »
+    const qui = contactLabel(
+      via === 'sms2' ? doc.client.phone2Name : via === 'sms' ? doc.client.phoneName : doc.client.emailName,
+      dest
+    )
     const token = tokenFor(doc, channel, share ? { [doc.id]: share } : null)
     const url = shareUrl(token)
     const sent = withEvent(markSent(doc), sendLabel(
-      parTexto ? `Lien envoyé par texto (${dest})` : `Lien envoyé par courriel (${dest})`
+      parTexto ? `Lien envoyé par texto (${qui})` : `Lien envoyé par courriel (${qui})`
     ))
     const totalsNow = calcTotals(sent)
 
@@ -180,7 +185,7 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
       window.location.href = `mailto:${dest}?subject=${subject}&body=${encodeURIComponent(buildEmailBody(settings, sent, totalsNow, url))}`
     }
 
-    publishInBackground(sent, channel, dest, token)
+    publishInBackground(sent, channel, qui, token)
   }
 
   const copyLink = async () => {
@@ -312,8 +317,11 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
   // propose donc, sans jamais l'imposer.
   const CONTACT_FIELDS = [
     ['phone', 'téléphone'],
+    ['phoneName', 'nom du contact'],
     ['phone2', '2e téléphone'],
+    ['phone2Name', 'nom du 2e contact'],
     ['email', 'courriel'],
+    ['emailName', 'nom du contact courriel'],
     ['address', 'adresse'],
     ['city', 'ville']
   ]
@@ -413,18 +421,22 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
             {clients.map(c => <option key={c.id} value={c.id}>{c.name}{c.city ? ` — ${c.city}` : ''}</option>)}
           </select>
           <input placeholder="Nom du client" value={doc.client.name} onChange={e => setClient({ name: e.target.value })}/>
+          {/* Deux numéros et un courriel, chacun avec le nom de la personne
+              derrière : la facture part au contremaître sur le chantier ET au
+              bureau, chacun reçoit son propre lien, et l'app dit lequel des
+              trois l'a ouverte — par son nom. */}
           <div className="pair">
+            <input placeholder="Nom (ex. Mathieu)" value={doc.client.phoneName || ''} onChange={e => setClient({ phoneName: e.target.value })}/>
             <input placeholder="Téléphone" value={doc.client.phone} onChange={e => setClient({ phone: e.target.value })}/>
+          </div>
+          <div className="pair">
+            <input placeholder="Nom (ex. Mélissa)" value={doc.client.phone2Name || ''} onChange={e => setClient({ phone2Name: e.target.value })}/>
+            <input placeholder="2e téléphone (facultatif)" value={doc.client.phone2 || ''} onChange={e => setClient({ phone2: e.target.value })}/>
+          </div>
+          <div className="pair">
+            <input placeholder="Nom (ex. administration)" value={doc.client.emailName || ''} onChange={e => setClient({ emailName: e.target.value })}/>
             <input placeholder="Email" value={doc.client.email} onChange={e => setClient({ email: e.target.value })}/>
           </div>
-          {/* Deux numéros : la facture part souvent au contremaître sur le
-              chantier ET à l'administration au bureau. Chacun reçoit son
-              propre lien, donc l'app sait lequel des deux l'a ouverte. */}
-          <input
-            placeholder="2e téléphone — contremaître, bureau… (facultatif)"
-            value={doc.client.phone2 || ''}
-            onChange={e => setClient({ phone2: e.target.value })}
-          />
           <input placeholder="Adresse" value={doc.client.address} onChange={e => setClient({ address: e.target.value })}/>
           <input placeholder="Ville" value={doc.client.city} onChange={e => setClient({ city: e.target.value })}/>
           {missingFromDoc.length > 0 && <button className="link-btn" onClick={pullFromBook}>
@@ -678,13 +690,13 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
               chantier, on envoie au contremaître ET au bureau, et il faut
               savoir lequel des deux on est en train de servir. */}
           <button onClick={() => sendLink('sms')} disabled={!!linkBusy}>
-            <MessageSquare size={19}/> <span>Texto avec le lien<small>{doc.client.phone?.trim() || 'aucun numéro au dossier'}</small></span>
+            <MessageSquare size={19}/> <span>{doc.client.phoneName?.trim() ? `Texto — ${doc.client.phoneName.trim()}` : 'Texto avec le lien'}<small>{doc.client.phone?.trim() || 'aucun numéro au dossier'}</small></span>
           </button>
           {doc.client.phone2?.trim() && <button onClick={() => sendLink('sms2')} disabled={!!linkBusy}>
-            <MessageSquare size={19}/> <span>Texto au 2e numéro<small>{doc.client.phone2.trim()}</small></span>
+            <MessageSquare size={19}/> <span>{doc.client.phone2Name?.trim() ? `Texto — ${doc.client.phone2Name.trim()}` : 'Texto au 2e numéro'}<small>{doc.client.phone2.trim()}</small></span>
           </button>}
           <button onClick={() => sendLink('mail')} disabled={!!linkBusy}>
-            <Mail size={19}/> <span>Courriel avec le lien<small>{doc.client.email?.trim() || 'aucune adresse au dossier'}</small></span>
+            <Mail size={19}/> <span>{doc.client.emailName?.trim() ? `Courriel — ${doc.client.emailName.trim()}` : 'Courriel avec le lien'}<small>{doc.client.email?.trim() || 'aucune adresse au dossier'}</small></span>
           </button>
           <button onClick={copyLink} disabled={!!linkBusy}><Copy size={19}/> Copier le lien</button>
 

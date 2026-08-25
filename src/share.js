@@ -36,10 +36,15 @@ export const shareUrl = token => `${location.origin}/f/${token}`
 export const CHANNELS = {
   mail: { label: 'Courriel', short: 'le courriel' },
   sms: { label: 'Texto', short: 'le texto' },
-  sms2: { label: 'Texto (2e numéro)', short: 'le texto au 2e numéro' },
+  // l'avis nomme déjà le destinataire : « Mélissa a ouvert le texto »
+  sms2: { label: 'Texto (2e numéro)', short: 'le texto' },
   lien: { label: 'Lien copié', short: 'le lien' }
 }
 export const channelLabel = c => CHANNELS[c]?.label || 'Lien'
+
+// L'étiquette d'un lien est « Mélissa · 1-780-972-4469 » : le nom devant, la
+// coordonnée derrière. C'est le nom qu'on veut lire dans un avis.
+export const nameFromLabel = label => String(label || '').split(' · ')[0].trim()
 
 // Ce que la page publique a besoin de connaître de l'entreprise pour dessiner
 // la facture — et rien de plus. Surtout pas la clé de l'IA ni les réglages

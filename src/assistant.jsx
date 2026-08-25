@@ -70,7 +70,10 @@ const cleanClient = c => ({
   address: String(c?.address || '').slice(0, 200),
   city: String(c?.city || '').slice(0, 120),
   phone: String(c?.phone || '').slice(0, 40),
+  phoneName: String(c?.phoneName || '').slice(0, 60),
   phone2: String(c?.phone2 || '').slice(0, 40),
+  phone2Name: String(c?.phone2Name || '').slice(0, 60),
+  emailName: String(c?.emailName || '').slice(0, 60),
   email: String(c?.email || '').slice(0, 120)
 })
 

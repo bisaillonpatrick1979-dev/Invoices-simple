@@ -1,6 +1,9 @@
 import React, { useState } from 'react'
 import { ArrowLeft, Plus, Trash2, Pencil, Search, X } from 'lucide-react'
-import { emptyClient, emptyItem, emptyExpense, EXPENSE_CATEGORIES, fmtDate, money, parseNum, today, uid, UNITS } from './store.js'
+import {
+  contactLabel, emptyClient, emptyItem, emptyExpense, EXPENSE_CATEGORIES, fmtDate,
+  money, parseNum, today, uid, UNITS
+} from './store.js'
 import { AppBar, Fab, NumField } from './lists.jsx'
 
 function FormSheet({ title, onClose, onSubmit, submitLabel, children }) {
@@ -28,7 +31,7 @@ export function ClientsScreen({ clients, setClients, onBack }) {
   }
 
   const q = query.trim().toLowerCase()
-  const list = clients.filter(c => !q || [c.name, c.email, c.phone, c.phone2, c.city].some(v => String(v || '').toLowerCase().includes(q)))
+  const list = clients.filter(c => !q || [c.name, c.email, c.phone, c.phone2, c.phoneName, c.phone2Name, c.emailName, c.city].some(v => String(v || '').toLowerCase().includes(q)))
 
   return <section className="screen">
     <AppBar title="Clients" left={<button className="icon light" onClick={onBack}><ArrowLeft size={22}/></button>}/>
@@ -41,7 +44,7 @@ export function ClientsScreen({ clients, setClients, onBack }) {
       {list.map(c => <div className="docrow static" key={c.id}>
         <div className="docinfo">
           <b>{c.name}</b>
-          <small>{[c.phone, c.phone2, c.email].filter(Boolean).join(' • ')}</small>
+          <small>{[contactLabel(c.phoneName, c.phone), contactLabel(c.phone2Name, c.phone2), contactLabel(c.emailName, c.email)].filter(Boolean).join(' • ')}</small>
           {(c.address || c.city) && <small>{c.address} {c.city}</small>}
         </div>
         <div className="row-actions">
@@ -53,9 +56,18 @@ export function ClientsScreen({ clients, setClients, onBack }) {
     <Fab onClick={() => setDraft({ ...emptyClient })} title="Nouveau client"/>
     {draft && <FormSheet title={draft.id ? 'Modifier client' : 'Nouveau client'} onClose={() => setDraft(null)} onSubmit={submit} submitLabel="Enregistrer">
       <input placeholder="Nom" value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })}/>
+      {/* Chaque coordonnée avec le nom de la personne derrière : c'est ce nom
+          qui s'affiche au moment d'envoyer et quand l'app dit qui a ouvert. */}
       <div className="pair">
+        <input placeholder="Nom (ex. Mathieu)" value={draft.phoneName || ''} onChange={e => setDraft({ ...draft, phoneName: e.target.value })}/>
         <input placeholder="Téléphone" value={draft.phone} onChange={e => setDraft({ ...draft, phone: e.target.value })}/>
-        <input placeholder="2e téléphone (contremaître, bureau…)" value={draft.phone2 || ''} onChange={e => setDraft({ ...draft, phone2: e.target.value })}/>
+      </div>
+      <div className="pair">
+        <input placeholder="Nom (ex. Mélissa)" value={draft.phone2Name || ''} onChange={e => setDraft({ ...draft, phone2Name: e.target.value })}/>
+        <input placeholder="2e téléphone" value={draft.phone2 || ''} onChange={e => setDraft({ ...draft, phone2: e.target.value })}/>
+      </div>
+      <div className="pair">
+        <input placeholder="Nom (ex. administration)" value={draft.emailName || ''} onChange={e => setDraft({ ...draft, emailName: e.target.value })}/>
         <input placeholder="Email" value={draft.email} onChange={e => setDraft({ ...draft, email: e.target.value })}/>
       </div>
       <input placeholder="Adresse" value={draft.address} onChange={e => setDraft({ ...draft, address: e.target.value })}/>

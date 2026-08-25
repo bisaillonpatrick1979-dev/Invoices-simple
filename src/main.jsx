@@ -16,7 +16,10 @@ import { ComptaScreen, RapportsScreen, PaiementsScreen } from './compta.jsx'
 import { SettingsScreen } from './settings.jsx'
 import { AiFab, AssistantScreen } from './assistant.jsx'
 import { useCloudSync } from './cloudui.jsx'
-import { agoFr, CHANNELS, lastSeenView, markViewsSeen, newViews, pullShareActivity, shareState } from './share.js'
+import {
+  agoFr, CHANNELS, lastSeenView, markViewsSeen, nameFromLabel, newViews,
+  pullShareActivity, shareState
+} from './share.js'
 import { SharedInvoice, shareTokenFromUrl } from './shared.jsx'
 import { HostNotice, hostNotice, SignInNotice } from './notices.jsx'
 import './styles.css'
@@ -327,8 +330,10 @@ function App() {
         }}>
           <Eye size={20}/>
           <span>
-            <b>{fresh[0].client || 'Le client'} a ouvert {CHANNELS[fresh[0].channel]?.short || 'le lien'} — {fresh[0].number}</b>
-            <small>{fresh[0].label ? `${fresh[0].label} — ` : ''}{agoFr(fresh[0].at)}{fresh.length > 1 ? ` — et ${fresh.length - 1} autre${fresh.length > 2 ? 's' : ''}` : ''}</small>
+            {/* Qui a ouvert : la personne nommée sur ce lien-là si on la
+                connaît, sinon le client. */}
+            <b>{nameFromLabel(fresh[0].label) || fresh[0].client || 'Le client'} a ouvert {CHANNELS[fresh[0].channel]?.short || 'le lien'} — {fresh[0].number}</b>
+            <small>{fresh[0].client ? `${fresh[0].client} — ` : ''}{agoFr(fresh[0].at)}{fresh.length > 1 ? ` — et ${fresh.length - 1} autre${fresh.length > 2 ? 's' : ''}` : ''}</small>
           </span>
         </button>
         <button className="icon" onClick={dismissViews} aria-label="Fermer"><X size={18}/></button>
