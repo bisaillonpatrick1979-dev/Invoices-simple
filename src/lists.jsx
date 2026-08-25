@@ -266,7 +266,7 @@ export function DocumentList({ type, docs, shares = {}, onOpen, onNew, onOpenSet
                     contremaître ne se lisent pas au même moment. */}
                 {channelsOf(shares[doc.id]).filter(c => c.last).map(c => (
                   <span key={c.channel} className={`stage view ${seenCurrent(c) ? '' : 'old'}`}>
-                    {c.channel === 'mail' ? <Mail size={12}/> : c.channel === 'sms' ? <MessageSquare size={12}/> : <Link2 size={12}/>}
+                    {c.channel === 'mail' ? <Mail size={12}/> : c.channel.startsWith('sms') ? <MessageSquare size={12}/> : <Link2 size={12}/>}
                     {seenCurrent(c) ? `lu ${agoFr(c.last.at)}` : 'lu avant correction'}
                   </span>
                 ))}

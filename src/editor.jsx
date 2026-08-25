@@ -149,19 +149,22 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
       ))
 
   const sendLink = via => {
+    // `via` vaut 'mail', 'sms' (1er numéro) ou 'sms2' (2e numéro).
+    const parTexto = via === 'sms' || via === 'sms2'
+    const numero = (via === 'sms2' ? doc.client.phone2 : doc.client.phone) || ''
     // On vérifie avant tout : rien ne doit changer d'état si le message ne
     // peut même pas partir.
-    if (via === 'sms' && !doc.client.phone?.trim())
+    if (parTexto && !numero.trim())
       return setShareError('Ajoute un numéro de téléphone au client avant d’envoyer par texto.')
-    if (via === 'mail' && !doc.client.email?.trim())
+    if (!parTexto && !doc.client.email?.trim())
       return setShareError('Ajoute une adresse email au client avant d’envoyer.')
 
-    const channel = via === 'sms' ? 'sms' : 'mail'
-    const dest = via === 'sms' ? doc.client.phone.trim() : doc.client.email.trim()
+    const channel = parTexto ? via : 'mail'
+    const dest = parTexto ? numero.trim() : doc.client.email.trim()
     const token = tokenFor(doc, channel, share ? { [doc.id]: share } : null)
     const url = shareUrl(token)
     const sent = withEvent(markSent(doc), sendLabel(
-      via === 'sms' ? `Lien envoyé par texto (${dest})` : `Lien envoyé par courriel (${dest})`
+      parTexto ? `Lien envoyé par texto (${dest})` : `Lien envoyé par courriel (${dest})`
     ))
     const totalsNow = calcTotals(sent)
 
@@ -170,7 +173,7 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
     persist({ ...sent, shareTokens: { ...(sent.shareTokens || {}), [channel]: token } })
 
     // ouvrir l'app de messagerie tout de suite, tant que le geste est « frais »
-    if (via === 'sms') {
+    if (parTexto) {
       window.location.href = `sms:${dest}?&body=${encodeURIComponent(buildSmsBody(settings, sent, totalsNow, url))}`
     } else {
       const subject = encodeURIComponent(`${sent.number} - ${settings.business.name}`)
@@ -395,6 +398,14 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
             <input placeholder="Téléphone" value={doc.client.phone} onChange={e => setClient({ phone: e.target.value })}/>
             <input placeholder="Email" value={doc.client.email} onChange={e => setClient({ email: e.target.value })}/>
           </div>
+          {/* Deux numéros : la facture part souvent au contremaître sur le
+              chantier ET à l'administration au bureau. Chacun reçoit son
+              propre lien, donc l'app sait lequel des deux l'a ouverte. */}
+          <input
+            placeholder="2e téléphone — contremaître, bureau… (facultatif)"
+            value={doc.client.phone2 || ''}
+            onChange={e => setClient({ phone2: e.target.value })}
+          />
           <input placeholder="Adresse" value={doc.client.address} onChange={e => setClient({ address: e.target.value })}/>
           <input placeholder="Ville" value={doc.client.city} onChange={e => setClient({ city: e.target.value })}/>
           <button className="link-btn" onClick={saveClientToBook}>Sauvegarder ce client en mémoire</button>
@@ -572,7 +583,7 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
 
         {chans.map(c => <div className="track-chan" key={c.channel}>
           <div className="track-chan-head">
-            {c.channel === 'mail' ? <Mail size={15}/> : c.channel === 'sms' ? <MessageSquare size={15}/> : <Link2 size={15}/>}
+            {c.channel === 'mail' ? <Mail size={15}/> : c.channel.startsWith('sms') ? <MessageSquare size={15}/> : <Link2 size={15}/>}
             <b>{channelLabel(c.channel)}</b>
             {c.label && <small>{c.label}</small>}
             <span className={`track-badge ${c.revoked ? 'cut' : c.views > 0 ? (seenCurrent(c) ? 'seen' : 'stale') : 'wait'}`}>
@@ -641,11 +652,17 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
           {/* Trois familles, nommées : la liste était devenue trop longue pour
               un écran de téléphone, et « Aperçu PDF » sortait par le haut. */}
           <h4>Le lien — tu sauras qui l'ouvre</h4>
+          {/* Un choix par destinataire, avec son numéro écrit dessous : sur un
+              chantier, on envoie au contremaître ET au bureau, et il faut
+              savoir lequel des deux on est en train de servir. */}
           <button onClick={() => sendLink('sms')} disabled={!!linkBusy}>
-            <MessageSquare size={19}/> <span>Texto avec le lien<small>au contremaître, au client…</small></span>
+            <MessageSquare size={19}/> <span>Texto avec le lien<small>{doc.client.phone?.trim() || 'aucun numéro au dossier'}</small></span>
           </button>
+          {doc.client.phone2?.trim() && <button onClick={() => sendLink('sms2')} disabled={!!linkBusy}>
+            <MessageSquare size={19}/> <span>Texto au 2e numéro<small>{doc.client.phone2.trim()}</small></span>
+          </button>}
           <button onClick={() => sendLink('mail')} disabled={!!linkBusy}>
-            <Mail size={19}/> <span>Courriel avec le lien<small>à l'administration</small></span>
+            <Mail size={19}/> <span>Courriel avec le lien<small>{doc.client.email?.trim() || 'aucune adresse au dossier'}</small></span>
           </button>
           <button onClick={copyLink} disabled={!!linkBusy}><Copy size={19}/> Copier le lien</button>
 

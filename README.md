@@ -94,17 +94,18 @@ Le bouton **Envoyer** ouvre un panneau en trois sections, qui tient dans l'écra
 
 | Section | Choix | Suivi |
 |---|---|---|
-| **Le lien** | **Texto avec le lien**, **Courriel avec le lien** | oui — l'app dit qui ouvre, et quand |
+| **Le lien** | **Texto avec le lien**, **Texto au 2e numéro**, **Courriel avec le lien** | oui — l'app dit qui ouvre, et quand |
 | | **Copier le lien** | oui, mais la facture n'est pas marquée envoyée (copier n'est pas envoyer) |
 | **Le PDF** | **Aperçu PDF**, **Envoyer le PDF** (fichier attaché), **Enregistrer le PDF**, **Imprimer** | aucun |
 | **Texte seulement** | **Courriel**, **Texto** | aucun |
 
 Le destinataire reçoit une adresse du genre `invoices-simple.vercel.app/f/wkLA8tdPctk…` : il touche, la facture s'ouvre dans son navigateur, avec un bouton **Télécharger le PDF**. Pas de compte, pas d'application à installer.
 
-**Un lien par destinataire.** Le courriel part à l'administration, le texto au contremaître : ce sont deux liens différents pour la même facture. C'est ce qui permet à l'app de dire **lequel des deux a lu** — « courriel lu il y a 3 min, texto pas encore ouvert » — plutôt qu'un vague « quelqu'un a ouvert ». Chaque lien porte l'adresse ou le numéro auquel il est parti, et se coupe séparément.
+**Un lien par destinataire.** Le courriel part à l'administration, le texto au contremaître, et un **deuxième texto** au bureau si le client a deux numéros : ce sont autant de liens différents pour la même facture. C'est ce qui permet à l'app de dire **lequel des deux a lu** — « courriel lu il y a 3 min, texto pas encore ouvert » — plutôt qu'un vague « quelqu'un a ouvert ». Chaque lien porte l'adresse ou le numéro auquel il est parti, et se coupe séparément.
 
 Ce que l'app affiche ensuite :
 
+- chaque choix d'envoi porte le numéro ou l'adresse visés, écrits dessous : on sait à qui on est en train d'envoyer ;
 - une pastille par canal sur la rangée de la facture — ✉ **lu il y a 3 min**, 💬 **lu il y a 1 min** — à côté de l'état ;
 - un **avis sous la barre du haut** au moment où l'ouverture est découverte — « Chantier Nord inc. a ouvert le courriel — INVOICE0012 », avec l'adresse en dessous — qui s'efface tout seul après quelques secondes ; une touche ouvre la facture ;
 - une carte **Liens de facture** dans l'éditeur : une ligne par destinataire, avec le nombre d'ouvertures, la date de la dernière, et les boutons **Copier**, **Voir la page**, **Couper**.

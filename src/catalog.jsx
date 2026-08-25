@@ -28,7 +28,7 @@ export function ClientsScreen({ clients, setClients, onBack }) {
   }
 
   const q = query.trim().toLowerCase()
-  const list = clients.filter(c => !q || [c.name, c.email, c.phone, c.city].some(v => String(v || '').toLowerCase().includes(q)))
+  const list = clients.filter(c => !q || [c.name, c.email, c.phone, c.phone2, c.city].some(v => String(v || '').toLowerCase().includes(q)))
 
   return <section className="screen">
     <AppBar title="Clients" left={<button className="icon light" onClick={onBack}><ArrowLeft size={22}/></button>}/>
@@ -41,7 +41,7 @@ export function ClientsScreen({ clients, setClients, onBack }) {
       {list.map(c => <div className="docrow static" key={c.id}>
         <div className="docinfo">
           <b>{c.name}</b>
-          <small>{c.phone}{c.email ? ` • ${c.email}` : ''}</small>
+          <small>{[c.phone, c.phone2, c.email].filter(Boolean).join(' • ')}</small>
           {(c.address || c.city) && <small>{c.address} {c.city}</small>}
         </div>
         <div className="row-actions">
@@ -55,6 +55,7 @@ export function ClientsScreen({ clients, setClients, onBack }) {
       <input placeholder="Nom" value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })}/>
       <div className="pair">
         <input placeholder="Téléphone" value={draft.phone} onChange={e => setDraft({ ...draft, phone: e.target.value })}/>
+        <input placeholder="2e téléphone (contremaître, bureau…)" value={draft.phone2 || ''} onChange={e => setDraft({ ...draft, phone2: e.target.value })}/>
         <input placeholder="Email" value={draft.email} onChange={e => setDraft({ ...draft, email: e.target.value })}/>
       </div>
       <input placeholder="Adresse" value={draft.address} onChange={e => setDraft({ ...draft, address: e.target.value })}/>

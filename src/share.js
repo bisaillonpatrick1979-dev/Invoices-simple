@@ -30,11 +30,13 @@ export function newToken(len = 22) {
 
 export const shareUrl = token => `${location.origin}/f/${token}`
 
-// Les trois façons dont un lien part. Le canal est ce qui permet de dire
-// « c'est le courriel qui a été lu, pas le texto ».
+// Les façons dont un lien part. Le canal est ce qui permet de dire « c'est le
+// courriel qui a été lu, pas le texto » — et, entre deux numéros, lequel des
+// deux a ouvert.
 export const CHANNELS = {
   mail: { label: 'Courriel', short: 'le courriel' },
   sms: { label: 'Texto', short: 'le texto' },
+  sms2: { label: 'Texto (2e numéro)', short: 'le texto au 2e numéro' },
   lien: { label: 'Lien copié', short: 'le lien' }
 }
 export const channelLabel = c => CHANNELS[c]?.label || 'Lien'
@@ -201,7 +203,7 @@ export async function pullShareActivity() {
 }
 
 // Les canaux d'une facture, dans l'ordre où on veut les lire.
-const ORDER = ['mail', 'sms', 'lien']
+const ORDER = ['mail', 'sms', 'sms2', 'lien']
 export const channelsOf = entry =>
   ORDER.filter(c => entry?.[c]).map(c => ({ channel: c, ...entry[c] }))
 
