@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { ArrowLeft, Cloud, Eye, HardDriveDownload, HardDriveUpload, Hash, Sparkles } from 'lucide-react'
+import { ArrowLeft, Cloud, Eye, HardDriveDownload, HardDriveUpload, Hash, Link2, Sparkles } from 'lucide-react'
 import {
   countersFromDocs, defaultWatermark, emptySettings, nextNumber, numberRank,
   readImageFile, sampleDocument
@@ -307,6 +307,26 @@ export function SettingsScreen({ settings, setSettings, cloud, data, onBack }) {
           Prochains numéros : <b>{nextNumber(docs, 'invoice', settings.invoicePrefix, counters.invoice)}</b>
           {' '}et <b>{nextNumber(docs, 'estimate', settings.estimatePrefix, counters.estimate)}</b>.
           {floorTooLow && <><br/><b className="warn-text">Impossible de descendre plus bas : {floorTooLow} est déjà utilisé.</b></>}
+        </p>
+      </div>
+
+      {/* Le chemin normal, c'est le PDF en pièce jointe. Le lien de suivi est
+          une option pour qui veut savoir quand le client ouvre — il change la
+          façon d'envoyer, donc il s'allume ici, en connaissance de cause. */}
+      <div className="edit-card padded">
+        <h2 className="section-title"><Link2 size={17}/> Liens de facture (facultatif)</h2>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={!!settings.trackingLinks}
+            onChange={e => setSettings({ ...settings, trackingLinks: e.target.checked })}
+          />
+          Proposer d'envoyer un lien plutôt que le fichier
+        </label>
+        <p className="hint small-note">
+          Décoché (normal) : une facture part avec son <b>PDF en pièce jointe</b>, par « Envoyer le PDF ».
+          Coché : le panneau d'envoi propose en plus un lien vers la facture en ligne, et l'app te dit
+          quand le destinataire l'ouvre. Les liens déjà envoyés continuent de fonctionner dans les deux cas.
         </p>
       </div>
 

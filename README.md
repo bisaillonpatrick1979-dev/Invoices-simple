@@ -90,14 +90,18 @@ L'état se met à jour tout seul quand tu envoies depuis l'app. Quand la facture
 
 Un PDF attaché à un texto ne dit jamais rien : une fois le fichier chez le client, il ne parle plus. Un **lien**, lui, passe par une page — et une page qui s'ouvre, ça se sait.
 
-Le bouton **Envoyer** ouvre un panneau en trois sections, qui tient dans l'écran et défile :
+Le bouton **Envoyer** ouvre un panneau qui tient dans l'écran et défile. **Le PDF vient en premier** : c'est la facture elle-même, en pièce jointe.
+
+> **Envoyer le PDF** est le seul chemin qui attache vraiment le fichier. Il ouvre le partage du téléphone — Gmail, Messages, WhatsApp, au choix, et on peut envoyer aux deux. Un courriel ouvert par « mailto: » ne transporte que du texte, quoi qu'on y mette : c'est une limite du téléphone, pas de l'app.
+
+Les **liens de facture** (page en ligne + « vue le… ») ne sont plus le chemin par défaut. Ils s'allument dans **Réglages → Liens de facture**, et le panneau propose alors une section de plus. Décochés, on envoie comme sur papier : le PDF part, et personne ne suit rien.
 
 | Section | Choix | Suivi |
 |---|---|---|
-| **Le lien** | **Texto avec le lien**, **Texto au 2e numéro**, **Courriel avec le lien** | oui — l'app dit qui ouvre, et quand |
-| | **Copier le lien** | oui, mais la facture n'est pas marquée envoyée (copier n'est pas envoyer) |
-| **Le PDF** | **Aperçu PDF**, **Envoyer le PDF** (fichier attaché), **Enregistrer le PDF**, **Imprimer** | aucun |
+| **Le PDF** | **Envoyer le PDF** (pièce jointe), **Aperçu PDF**, **Enregistrer le PDF**, **Imprimer** | aucun |
 | **Texte seulement** | **Courriel**, **Texto** | aucun |
+| **Le lien** *(si allumé dans les réglages)* | **Texto**, **Texto au 2e numéro**, **Courriel avec le lien** | oui — l'app dit qui ouvre, et quand |
+| | **Copier le lien** | oui, mais la facture n'est pas marquée envoyée (copier n'est pas envoyer) |
 
 Le destinataire reçoit une adresse du genre `invoices-simple.vercel.app/f/wkLA8tdPctk…` : il touche, la facture s'ouvre dans son navigateur, avec un bouton **Télécharger le PDF**. Pas de compte, pas d'application à installer.
 

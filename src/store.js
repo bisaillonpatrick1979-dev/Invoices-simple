@@ -64,6 +64,10 @@ export const emptySettings = {
   estimatePrefix: 'EST',
   defaultNotes: '',
   paymentInstructions: '',
+  // Les liens de facture (page en ligne + suivi des ouvertures) sont une
+  // option, pas le chemin normal : par défaut, une facture s'envoie avec son
+  // PDF en pièce jointe, comme un papier.
+  trackingLinks: false,
   // le plus haut numéro déjà utilisé, par type
   counters: { ...emptyCounters }
 }

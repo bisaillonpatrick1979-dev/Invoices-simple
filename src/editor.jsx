@@ -594,7 +594,7 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
       {/* Les liens de facture, un par destinataire, et ce qu'ils rapportent :
           c'est la seule façon de savoir qui a ouvert. Un PDF attaché, lui, ne
           dit jamais rien. */}
-      {isInvoice && <div className="edit-card track">
+      {isInvoice && (settings.trackingLinks || chans.length > 0) && <div className="edit-card track">
         <div className="track-head">
           <Link2 size={17}/>
           <b>Liens de facture</b>
@@ -608,6 +608,7 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
         {revised && <p className="track-warn">
           La correction n'est pas partie : « Marquer comme renvoyée » ne poste rien. Utilise « Renvoyer » pour que le client reçoive la nouvelle version.
         </p>}
+
 
         {chans.length === 0 && <p className="hint small-note">
           Envoie le lien plutôt que le fichier : la facture s'ouvre dans le navigateur du destinataire,
@@ -683,38 +684,41 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
     {view !== 'history' && <>
       {sendOpen && <div className="menu-backdrop no-print" onClick={() => setSendOpen(false)}>
         <div className="send-menu" onClick={e => e.stopPropagation()}>
-          {/* Trois familles, nommées : la liste était devenue trop longue pour
-              un écran de téléphone, et « Aperçu PDF » sortait par le haut. */}
-          <h4>Le lien — tu sauras qui l'ouvre</h4>
-          {/* Un choix par destinataire, avec son numéro écrit dessous : sur un
-              chantier, on envoie au contremaître ET au bureau, et il faut
-              savoir lequel des deux on est en train de servir. */}
-          <button onClick={() => sendLink('sms')} disabled={!!linkBusy}>
-            <MessageSquare size={19}/> <span>{doc.client.phoneName?.trim() ? `Texto — ${doc.client.phoneName.trim()}` : 'Texto avec le lien'}<small>{doc.client.phone?.trim() || 'aucun numéro au dossier'}</small></span>
-          </button>
-          {doc.client.phone2?.trim() && <button onClick={() => sendLink('sms2')} disabled={!!linkBusy}>
-            <MessageSquare size={19}/> <span>{doc.client.phone2Name?.trim() ? `Texto — ${doc.client.phone2Name.trim()}` : 'Texto au 2e numéro'}<small>{doc.client.phone2.trim()}</small></span>
-          </button>}
-          <button onClick={() => sendLink('mail')} disabled={!!linkBusy}>
-            <Mail size={19}/> <span>{doc.client.emailName?.trim() ? `Courriel — ${doc.client.emailName.trim()}` : 'Courriel avec le lien'}<small>{doc.client.email?.trim() || 'aucune adresse au dossier'}</small></span>
-          </button>
-          <button onClick={copyLink} disabled={!!linkBusy}><Copy size={19}/> Copier le lien</button>
-
+          {/* Le PDF d'abord : c'est la facture elle-même, en pièce jointe.
+              Le partage du téléphone est le SEUL chemin qui attache vraiment
+              le fichier — un courriel ouvert par « mailto: » ne transporte que
+              du texte, quoi qu'on y mette. */}
           <h4>Le PDF</h4>
-          <button onClick={previewPdf}><Eye size={19}/> Aperçu PDF</button>
-          {/* Le partage natif est le seul chemin qui attache vraiment le
-              fichier : il ouvre Messages, Gmail, WhatsApp… au choix. */}
           {shareable && <button onClick={sharePdfTo}>
-            <Share2 size={19}/> <span>Envoyer le PDF<small>fichier attaché, sans suivi</small></span>
+            <Share2 size={19}/> <span>Envoyer le PDF<small>courriel ou texto, le fichier en pièce jointe</small></span>
           </button>}
+          <button onClick={previewPdf}><Eye size={19}/> Aperçu PDF</button>
           <button onClick={savePdf}><Download size={19}/> Enregistrer le PDF</button>
           <button onClick={printPdf}><Printer size={19}/> Imprimer</button>
 
           <h4>Texte seulement</h4>
-          <button onClick={sendEmail}><Mail size={19}/> <span>Courriel<small>sans pièce jointe ni suivi</small></span></button>
-          <button onClick={sendSms}><MessageSquare size={19}/> <span>Texto<small>sans pièce jointe ni suivi</small></span></button>
+          <button onClick={sendEmail}><Mail size={19}/> <span>Courriel<small>sans pièce jointe</small></span></button>
+          <button onClick={sendSms}><MessageSquare size={19}/> <span>Texto<small>sans pièce jointe</small></span></button>
+
+          {/* Les liens de suivi restent disponibles pour qui les veut, mais ils
+              ne sont plus le chemin par défaut : ils s'allument dans les
+              réglages. */}
+          {settings.trackingLinks && <>
+            <h4>Le lien — tu sauras qui l'ouvre</h4>
+            <button onClick={() => sendLink('sms')} disabled={!!linkBusy}>
+              <MessageSquare size={19}/> <span>{doc.client.phoneName?.trim() ? `Texto — ${doc.client.phoneName.trim()}` : 'Texto avec le lien'}<small>{doc.client.phone?.trim() || 'aucun numéro au dossier'}</small></span>
+            </button>
+            {doc.client.phone2?.trim() && <button onClick={() => sendLink('sms2')} disabled={!!linkBusy}>
+              <MessageSquare size={19}/> <span>{doc.client.phone2Name?.trim() ? `Texto — ${doc.client.phone2Name.trim()}` : 'Texto au 2e numéro'}<small>{doc.client.phone2.trim()}</small></span>
+            </button>}
+            <button onClick={() => sendLink('mail')} disabled={!!linkBusy}>
+              <Mail size={19}/> <span>{doc.client.emailName?.trim() ? `Courriel — ${doc.client.emailName.trim()}` : 'Courriel avec le lien'}<small>{doc.client.email?.trim() || 'aucune adresse au dossier'}</small></span>
+            </button>
+            <button onClick={copyLink} disabled={!!linkBusy}><Copy size={19}/> Copier le lien</button>
+          </>}
         </div>
       </div>}
+
       {shareError && <div className="menu-backdrop no-print" onClick={() => setShareError('')}>
         <div className="send-menu" onClick={e => e.stopPropagation()}>
           <p className="hint small-note padded">{shareError}</p>
