@@ -173,7 +173,7 @@ const ts = v => (v ? new Date(v).getTime() : 0)
 // une facture pèse ses photos, et les rapatrier toutes à chaque synchro
 // coûterait le forfait de données pour rien. `pull` dit lesquelles valent la
 // peine d'être redescendues.
-export function reconcile(localList, remoteRows, snap) {
+export function reconcile(localList, remoteRows, snap, full = false) {
   const remote = new Map(remoteRows.map(r => [r.id, r]))
   const locals = new Map(localList.map(x => [x.id, x]))
   // Un appareil qui n'a plus RIEN d'une collection ne parle pas au nom de la
@@ -204,7 +204,11 @@ export function reconcile(localList, remoteRows, snap) {
     }
     if (!r) { merged.push(item); upsert.push(item); continue }
 
-    const changedThere = ts(r.updated_at) > ts(before?.at)
+    // `full` : à l'ouverture de l'app, le nuage fait foi pour tout ce qui n'a
+    // pas été retouché ici depuis la dernière synchro. C'est ce qui rend
+    // l'écran fidèle au serveur même si la mémoire du navigateur est en
+    // retard, incomplète ou remise à neuf.
+    const changedThere = full || ts(r.updated_at) > ts(before?.at)
     if (changedHere || !changedThere) {
       merged.push(item)
       if (changedHere) upsert.push(item)
@@ -229,14 +233,14 @@ export function reconcile(localList, remoteRows, snap) {
   return { merged, upsert, remove, pull, nextSnap }
 }
 
-async function syncCollection(name, localList, userId, snap, totalsOf) {
+async function syncCollection(name, localList, userId, snap, totalsOf, full = false) {
   const spec = COLLECTIONS[name]
   const db = cloud()
   // Premier passage : rien que l'état des lignes, pas leur contenu.
   const { data, error } = await db.from(spec.table).select('id, updated_at, deleted_at').eq('user_id', userId)
   if (error) throw error
 
-  const plan = reconcile(localList, data || [], snap[name] || {})
+  const plan = reconcile(localList, data || [], snap[name] || {}, full)
   const merged = [...plan.merged]
   const now = new Date().toISOString()
 
@@ -274,19 +278,30 @@ async function syncCollection(name, localList, userId, snap, totalsOf) {
 
   const nextSnap = {}
   for (const x of merged) nextSnap[x.id] = { json: stamp(x), at: plan.nextSnap[x.id]?.at || now }
-  return { merged, snap: nextSnap, pushed: plan.upsert.length, removed: plan.remove.length }
+  return { merged, snap: nextSnap, pushed: plan.upsert.length, removed: plan.remove.length, pulled: plan.pull.length }
 }
 
-async function syncSettings(localSettings, userId, snap) {
+async function syncSettings(localSettings, userId, snap, full = false) {
   const db = cloud()
   const wanted = settingsForCloud(localSettings)
   const { data, error } = await db.from('settings').select('*').eq('user_id', userId).maybeSingle()
   if (error) throw error
 
   const before = snap.settings?.row
-  const changedHere = !before || before !== stamp(wanted)
-  const changedThere = data && ts(data.updated_at) > ts(snap.settings?.at)
+  // Sans instantané, cet appareil n'a rien à raconter : il n'a pas « changé »
+  // les réglages, il ne les connaît pas encore. L'ancien code prenait ce vide
+  // pour une modification et poussait ses valeurs par défaut par-dessus le
+  // nuage — le nom de la compagnie, le logo et le filigrane repartaient à zéro
+  // sur un appareil neuf ou après un nettoyage du navigateur.
+  const changedHere = !!before && before !== stamp(wanted)
+  const changedThere = data && (full || ts(data.updated_at) > ts(snap.settings?.at))
   const now = new Date().toISOString()
+
+  if (data && !changedHere && changedThere) {
+    // La clé API restée locale ne doit pas être écrasée par le vide du nuage
+    const fresh = { ...data.data, ai: { ...(data.data.ai || {}), apiKey: localSettings.ai?.apiKey || '' } }
+    return { settings: fresh, snap: { row: stamp(settingsForCloud(fresh)), at: data.updated_at } }
+  }
 
   if (!data || changedHere) {
     const { error: upErr } = await db.from('settings')
@@ -294,17 +309,12 @@ async function syncSettings(localSettings, userId, snap) {
     if (upErr) throw upErr
     return { settings: null, snap: { row: stamp(wanted), at: now } }
   }
-  if (changedThere) {
-    // La clé API restée locale ne doit pas être écrasée par le vide du nuage
-    const fresh = { ...data.data, ai: { ...(data.data.ai || {}), apiKey: localSettings.ai?.apiKey || '' } }
-    return { settings: fresh, snap: { row: stamp(settingsForCloud(fresh)), at: data.updated_at } }
-  }
   return { settings: null, snap: snap.settings }
 }
 
 // Synchro complète. Renvoie ce que l'app doit adopter — les listes fusionnées,
 // et `settings` seulement si le nuage avait du neuf.
-export async function syncAll({ settings, clients, items, expenses, docs }, totalsOf) {
+export async function syncAll({ settings, clients, items, expenses, docs }, totalsOf, { full = false } = {}) {
   const db = cloud()
   if (!db) throw new Error("Le nuage n'est pas configuré.")
   const { data: { session } } = await db.auth.getSession()
@@ -315,19 +325,21 @@ export async function syncAll({ settings, clients, items, expenses, docs }, tota
   const out = {}
   let pushed = 0
   let removed = 0
+  const pulled = {}
 
   for (const [name, list] of [['clients', clients], ['items', items], ['expenses', expenses], ['docs', docs]]) {
-    const r = await syncCollection(name, list, userId, snap, name === 'docs' ? totalsOf : null)
+    const r = await syncCollection(name, list, userId, snap, name === 'docs' ? totalsOf : null, full)
     out[name] = r.merged
     snap[name] = r.snap
     pushed += r.pushed
     removed += r.removed
+    if (r.pulled) pulled[name] = r.pulled
   }
 
-  const s = await syncSettings(settings, userId, snap)
+  const s = await syncSettings(settings, userId, snap, full)
   snap.settings = s.snap
   out.settings = s.settings
 
   saveSnap(snap)
-  return { ...out, pushed, removed, at: new Date().toISOString() }
+  return { ...out, pushed, removed, pulled, full, at: new Date().toISOString() }
 }

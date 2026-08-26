@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
   FileText, ClipboardList, Calculator, CreditCard, MoreHorizontal,
-  Users, Package, ReceiptText, BarChart3, Settings as SettingsIcon, X, Sparkles, Eye
+  Users, Package, ReceiptText, BarChart3, Settings as SettingsIcon, X, Sparkles, Eye, Cloud
 } from 'lucide-react'
 import {
   load, save, countersFromDocs, emptySettings, hasDraftContent, mergeItemsFromLines,
@@ -79,6 +79,7 @@ function App() {
   const [signInOff, setSignInOff] = useState(() => load('is_signin_notice_off', false))
   const badHost = hostNotice()
 
+
   useEffect(() => save('is_settings', settings), [settings])
   useEffect(() => save('is_clients', clients), [clients])
   useEffect(() => save('is_items', items), [items])
@@ -96,6 +97,23 @@ function App() {
   }
 
   const cloud = useCloudSync({ settings, clients, items, expenses, docs }, applyCloud)
+  // Résumé de ce que la première synchro a rapporté, effacé après un moment.
+  const [pulledSeen, setPulledSeen] = useState(false)
+  const NOMS = { docs: ['facture', 'factures'], clients: ['client', 'clients'], items: ['article', 'articles'], expenses: ['dépense', 'dépenses'] }
+  const pulledNote = (() => {
+    if (pulledSeen || !cloud.state.full) return ''
+    const p = cloud.state.pulled || {}
+    const parts = Object.entries(p)
+      .filter(([, n]) => n > 0)
+      .map(([k, n]) => `${n} ${NOMS[k]?.[n > 1 ? 1 : 0] || k}`)
+    return parts.length ? parts.join(', ') : ''
+  })()
+
+  useEffect(() => {
+    if (!pulledNote) return
+    const t = setTimeout(() => setPulledSeen(true), 9000)
+    return () => clearTimeout(t)
+  }, [pulledNote])
 
   // Qui a ouvert sa facture ? On le redemande après chaque synchro, et au
   // retour sur l'app : c'est là qu'on apprend qu'un client a lu.
@@ -307,6 +325,18 @@ function App() {
           pressant : d'abord l'adresse (c'est elle qui fait qu'une app paraît
           vide), puis la connexion au nuage, puis les ouvertures de factures. */}
       <div className="notice-stack no-print" style={{ top: toastTop }}>
+        {/* Ce que l'ouverture vient de ramener du nuage. On le dit : « l'app
+            est vide » et « l'app se remplit » ne se ressemblent que si
+            personne ne montre le travail. */}
+        {pulledNote && <div className="notice info">
+          <Cloud size={20}/>
+          <div>
+            <b>Ramené du nuage</b>
+            <span>{pulledNote}</span>
+          </div>
+          <button className="icon" onClick={() => setPulledSeen(true)} aria-label="Fermer"><X size={17}/></button>
+        </div>}
+
         {badHost && !hostOff && <HostNotice
           notice={badHost}
           onDismiss={() => { save('is_host_notice_off', true); setHostOff(true) }}

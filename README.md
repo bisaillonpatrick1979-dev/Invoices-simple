@@ -172,6 +172,14 @@ Les adresses du genre `invoices-simple-<jeton>-…` sont celles d'une mise en li
 
 Les deux bandeaux se ferment d'une touche et ne reviennent plus.
 
+### À chaque ouverture, l'app relit le nuage au complet
+
+Tant qu'un appareil est connecté au compte, **l'ouverture de l'app relit tout ce que Supabase contient** — factures, clients, articles, dépenses et réglages — et l'écran affiche le nuage, pas la mémoire du navigateur. Un bandeau le dit : « Ramené du nuage : 1 client, 14 articles, 4 factures ».
+
+Les fois suivantes dans la même session, seule la différence circule : inutile de redescendre les mêmes factures toutes les trente secondes.
+
+Ce qui a été **modifié ici depuis la dernière synchro** gagne toujours : une facture corrigée sur un chantier sans réseau n'est pas écrasée par la relecture, elle est poussée au nuage. C'est ce qui permet de travailler hors ligne sans rien perdre.
+
 ### Pourquoi l'app peut paraître vide alors que le nuage est plein
 
 Ce n'est pas le déploiement qui efface quoi que ce soit. Deux mécanismes se combinent :

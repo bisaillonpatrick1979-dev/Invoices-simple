@@ -22,14 +22,21 @@ export function useCloudSync(data, apply) {
     return () => sub?.subscription?.unsubscribe()
   }, [])
 
+  // La première synchro d'une ouverture relit le nuage AU COMPLET : l'écran
+  // doit montrer ce que le serveur contient, pas ce que la mémoire du
+  // navigateur a retenu. Les fois suivantes, seul ce qui a bougé circule.
+  const firstRef = useRef(true)
+
   const sync = async () => {
     if (runningRef.current || !user) return
     runningRef.current = true
     setState(s => ({ ...s, busy: true, error: '' }))
     try {
-      const r = await syncAll(dataRef.current, totalsOf)
+      const full = firstRef.current
+      const r = await syncAll(dataRef.current, totalsOf, { full })
+      firstRef.current = false
       apply(r)
-      setState({ busy: false, at: r.at, error: '' })
+      setState({ busy: false, at: r.at, error: '', pulled: r.pulled, full })
     } catch (e) {
       setState(s => ({ ...s, busy: false, error: cloudError(e) }))
     } finally {
