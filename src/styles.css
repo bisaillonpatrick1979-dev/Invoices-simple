@@ -1577,3 +1577,37 @@ button.primary.wide { width: 100%; margin-top: 12px; }
   cursor: pointer;
 }
 .seg button.on { background: #fff; font-weight: 700; box-shadow: 0 1px 4px rgba(15, 23, 42, .12); }
+
+
+/* ===== Pages publiques : confidentialité, conditions ===== */
+.legal-page { min-height: 100vh; background: #fff; }
+.legal-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--blue-bar);
+  color: #fff;
+}
+.legal-head .icon { color: #fff; }
+.legal-head div { display: grid; }
+.legal-head b { font-size: 16px; }
+.legal-head small { opacity: .8; font-size: 12px; }
+.legal-body { max-width: 640px; margin: 0 auto; padding: 18px 18px 60px; line-height: 1.6; }
+.legal-body h2 { font-size: 17px; margin: 26px 0 8px; }
+.legal-body p, .legal-body li { font-size: 15px; color: #1f2937; }
+.legal-body ul { padding-left: 20px; display: grid; gap: 7px; }
+.legal-body a { color: var(--blue); }
+
+.legal-links {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  padding: 4px 0 2px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.legal-links a { color: var(--blue); text-decoration: none; }

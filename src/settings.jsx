@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { ArrowLeft, Cloud, Eye, HardDriveDownload, HardDriveUpload, Hash, Link2, Sparkles } from 'lucide-react'
+import { ArrowLeft, Cloud, Eye, HardDriveDownload, HardDriveUpload, Hash, Link2, Sparkles, Trash2 } from 'lucide-react'
 import {
   applyRegion, countersFromDocs, defaultWatermark, emptySettings, nextNumber,
   numberRank, readImageFile, REGIONS, sampleDocument
@@ -7,6 +7,7 @@ import {
 import { AI_PROVIDERS, aiProvider, askAi } from './ai.js'
 import { applyBackup, backupCounts, downloadBackup, readBackupFile } from './backup.js'
 import { CloudSection } from './cloudui.jsx'
+import { deleteAccount } from './cloud.js'
 import { AppBar } from './lists.jsx'
 import { PaperPreview, Watermark } from './paper.jsx'
 
@@ -50,6 +51,28 @@ export function SettingsScreen({ settings, setSettings, cloud, data, onBack }) {
   const [nextInvoice, setNextInvoice] = useState(() => String(counters.invoice + 1))
   const [nextEstimate, setNextEstimate] = useState(() => String(counters.estimate + 1))
   const [floorTooLow, setFloorTooLow] = useState('')
+  const [killOpen, setKillOpen] = useState(false)
+  const [killWord, setKillWord] = useState('')
+  const [killBusy, setKillBusy] = useState(false)
+  const [killMsg, setKillMsg] = useState(null)
+
+  const removeAccount = async () => {
+    setKillBusy(true)
+    setKillMsg(null)
+    try {
+      await deleteAccount()
+      // Le serveur est vide : l'appareil doit l'être aussi, sinon la prochaine
+      // ouverture repousserait tout dans un compte qui n'existe plus.
+      Object.keys(localStorage)
+        .filter(k => k.startsWith('is_'))
+        .forEach(k => localStorage.removeItem(k))
+      setKillMsg({ text: 'Compte supprimé. L’app redémarre à neuf…' })
+      setTimeout(() => window.location.replace('/'), 900)
+    } catch (e) {
+      setKillMsg({ err: true, text: String(e?.message || e) })
+      setKillBusy(false)
+    }
+  }
 
   // Reculer sous un numéro déjà porté referait des doublons : on le refuse et
   // on dit lequel bloque.
@@ -358,6 +381,42 @@ export function SettingsScreen({ settings, setSettings, cloud, data, onBack }) {
         <h2 className="section-title">Textes par défaut</h2>
         <Field label="Remarques par défaut"><textarea rows={2} value={settings.defaultNotes} onChange={e => setSettings({ ...settings, defaultNotes: e.target.value })}/></Field>
         <Field label="Info sur le paiement (sur le PDF)"><textarea rows={2} value={settings.paymentInstructions} onChange={e => setSettings({ ...settings, paymentInstructions: e.target.value })} placeholder="Virement Interac à..., chèque à l'ordre de..."/></Field>
+      </div>
+
+      {/* Exigé par Google Play et l'App Store pour toute app à comptes : la
+          personne doit pouvoir reprendre ce qu'elle a confié, depuis l'app,
+          sans écrire à personne. */}
+      <div className="edit-card padded">
+        <h2 className="section-title"><Trash2 size={17}/> Supprimer mon compte</h2>
+        <p className="hint small-note">
+          Efface <b>définitivement</b> ton compte et tout ce qu'il contient sur le serveur : factures, devis,
+          clients, articles, dépenses, réglages et liens de facture. Sans retour possible.
+          Enregistre une copie avant si tu veux garder une trace.
+        </p>
+        {!killOpen
+          ? <button className="outline-btn danger" onClick={() => { setKillOpen(true); setKillWord(''); setKillMsg(null) }}>
+              Supprimer mon compte et mes données
+            </button>
+          : <>
+              <Field label="Écris SUPPRIMER pour confirmer">
+                <input value={killWord} onChange={e => setKillWord(e.target.value)} placeholder="SUPPRIMER"/>
+              </Field>
+              <div className="pair">
+                <button className="outline-btn" onClick={() => setKillOpen(false)}>Annuler</button>
+                <button
+                  className="outline-btn danger"
+                  disabled={killWord.trim().toUpperCase() !== 'SUPPRIMER' || killBusy}
+                  onClick={removeAccount}
+                >{killBusy ? 'Suppression…' : 'Effacer définitivement'}</button>
+              </div>
+            </>}
+        {killMsg && <p className={killMsg.err ? 'hint small-note err' : 'hint small-note'}>{killMsg.text}</p>}
+      </div>
+
+      <div className="legal-links">
+        <a href="/confidentialite">Politique de confidentialité</a>
+        <span>·</span>
+        <a href="/conditions">Conditions d'utilisation</a>
       </div>
 
       <button className="outline-btn danger" onClick={() => { if (confirm('Remettre les réglages par défaut ? (les factures et clients restent)')) setSettings(emptySettings) }}>Réinitialiser les réglages</button>

@@ -2,6 +2,33 @@
 
 Application de facturation avec une interface calquée sur les captures d'écran de l'app mobile de référence : thème bleu, barre d'onglets en bas, listes groupées par année et éditeur en rangées de cartes.
 
+## Mise en vente : ce qui est prêt, ce qui reste
+
+L'app est en préparation pour Google Play, l'App Store et les autres plateformes. Ce qui suit est l'état réel, pas une intention.
+
+### Fait, et vérifié
+
+| Exigence | Où c'est |
+|---|---|
+| **Installation** — manifeste, icônes 192/512 + maskable, mode plein écran | `public/manifest.webmanifest`, `public/icon-*.png` |
+| **Fonctionne hors ligne** — un magasin refuse une page blanche sans réseau | `public/sw.js` : réseau d'abord pour les pages, cache pour le code |
+| **Politique de confidentialité** publique, sans compte | `/confidentialite` |
+| **Conditions d'utilisation** publiques | `/conditions` |
+| **Suppression du compte depuis l'app** — refus automatique chez Google et Apple si elle manque | Réglages → Supprimer mon compte, avec confirmation écrite ; fonction serveur `delete-account` |
+| **Aucune donnée d'origine** dans une installation neuve | catalogue vide, réglages vides, taxes selon la région choisie |
+| **Cloisonnement des comptes** | règles RLS : le serveur refuse la ligne d'un autre |
+
+### Ce qui reste — et qui demande tes comptes, pas du code
+
+1. **L'anglais.** L'app est entièrement en français : chaque texte est encore écrit dans le code. Il faut les extraire, traduire, y compris les PDF et les courriels. C'est le plus gros morceau, et celui qui double le marché.
+2. **L'emballage.** Un site web ne s'envoie pas tel quel dans un magasin.
+   - *Google Play* : Bubblewrap ou PWABuilder transforme cette app en application Android (TWA), avec un fichier `assetlinks.json` à déposer sur le domaine. Compte développeur : 25 $ US, une fois.
+   - *App Store* : Capacitor emballe l'app en application iOS. Compte développeur : 99 $ US par an. Apple refuse les simples « sites emballés » (règle 4.2) : il faut que l'app se serve de l'appareil — la caméra, le partage de fichiers et le mode hors ligne, que nous avons déjà, comptent pour ça.
+3. **Un vrai domaine.** `invoices-simple.vercel.app` fait amateur sur une fiche de magasin, et `assetlinks.json` demande un domaine que tu contrôles.
+4. **Les fiches** : nom, description, captures d'écran par format d'appareil, icône 512, image de bannière, catégorie, classification d'âge, formulaire *Data safety* (Play) et *Privacy nutrition labels* (Apple) — à remplir avec ce que dit `/confidentialite`.
+5. **Le prix.** Gratuit, payant une fois, ou abonnement ? Un abonnement impose la facturation du magasin (15 à 30 % de commission) et une gestion des reçus.
+6. **Les taux de taxe** à revalider avant chaque sortie : ils changent avec les budgets.
+
 ## Une app neuve n'appartient à personne
 
 À la première ouverture d'une installation vierge, l'app pose trois questions, et rien d'autre :

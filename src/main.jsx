@@ -23,6 +23,7 @@ import {
 import { SharedInvoice, shareTokenFromUrl } from './shared.jsx'
 import { CANONICAL_URL, HostNotice, hostNotice, SignInNotice } from './notices.jsx'
 import { needsWelcome, Welcome } from './welcome.jsx'
+import { legalRouteFromUrl, PrivacyPage, TermsPage } from './legal.jsx'
 import './styles.css'
 
 // Une modification n'est pas envoyée tout de suite : sur un chantier, on
@@ -480,6 +481,22 @@ try {
 const shareToken = shareTokenFromUrl()
 const ownerPreview = new URLSearchParams(location.search).get('apercu') === '1'
 
+// L'app s'installe et vit sans réseau : c'est ce que les magasins
+// d'applications exigent, et ce qu'un chantier sans signal exige aussi.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => { /* pas grave : l'app marche quand même */ })
+  })
+}
+
+// Les magasins d'applications exigent une adresse publique pour la
+// confidentialité et pour les conditions : elles s'ouvrent sans compte, sans
+// réseau, et avant tout le reste.
+const legal = legalRouteFromUrl()
+
 createRoot(document.getElementById('root')).render(
-  shareToken ? <SharedInvoice token={shareToken} log={!ownerPreview}/> : <App />
+  legal === 'privacy' ? <PrivacyPage/>
+    : legal === 'terms' ? <TermsPage/>
+      : shareToken ? <SharedInvoice token={shareToken} log={!ownerPreview}/>
+        : <App />
 )

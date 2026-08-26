@@ -85,6 +85,34 @@ export const resendConfirmation = email => cloud().auth.resend({
   options: { emailRedirectTo: window.location.origin }
 })
 export const signOut = () => cloud().auth.signOut()
+
+// Supprimer le compte et tout ce qu'il contient.
+//
+// Un magasin d'applications refuse une app à comptes qui n'offre pas ce
+// bouton — et il a raison. L'effacement se fait côté serveur, dans une
+// fonction qui ne connaît qu'une personne : celle dont elle lit le jeton.
+export async function deleteAccount() {
+  const db = cloud()
+  if (!db) throw new Error("La sauvegarde infonuagique n'est pas configurée.")
+  const { data: { session } } = await db.auth.getSession()
+  if (!session) throw new Error('Connecte-toi d’abord : il n’y a pas de compte à supprimer sur cet appareil.')
+
+  const { url, key } = cloudConfig()
+  const res = await fetch(`${url}/functions/v1/delete-account`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      apikey: key,
+      'Content-Type': 'application/json'
+    }
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok || body.error) throw new Error(body.error || `Le serveur a refusé (${res.status}).`)
+
+  // La session n'a plus d'objet : le compte n'existe plus.
+  try { await db.auth.signOut() } catch { /* déjà parti */ }
+  return body
+}
 export const getSession = () => cloud()?.auth.getSession() || Promise.resolve({ data: { session: null } })
 export const onAuthChange = fn => cloud()?.auth.onAuthStateChange((_e, session) => fn(session?.user || null))
 
