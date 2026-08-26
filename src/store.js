@@ -42,13 +42,15 @@ export const defaultWatermark = {
 export const emptyCounters = { invoice: 0, estimate: 0 }
 
 export const emptySettings = {
+  // Rien de prérempli : l'app neuve n'appartient à personne tant que son
+  // propriétaire ne s'est pas nommé.
   business: {
-    name: 'Votre compagnie',
+    name: '',
     owner: '',
     phone: '',
     email: '',
     address: '',
-    city: 'Calgary, AB',
+    city: '',
     website: '',
     gst: ''
   },
@@ -56,8 +58,13 @@ export const emptySettings = {
   logoOnPdf: true,
   watermark: { ...defaultWatermark },
   ai: { provider: 'anthropic', apiKey: '', model: 'claude-opus-5', baseUrl: '' },
-  taxLabel: 'Gst',
-  taxRate: 5,
+  // La région choisie à la première ouverture pose les taxes. Vide = pas
+  // encore configurée : c'est ce qui déclenche l'écran de bienvenue.
+  region: '',
+  taxLabel: 'Taxe',
+  taxRate: 0,
+  taxLabel2: '',
+  taxRate2: 0,
   taxDefault: true,
   accent: '#4353c9',
   invoicePrefix: 'INVOICE',
@@ -79,6 +86,9 @@ export const mergeSettings = stored => ({
   business: { ...emptySettings.business, ...(stored?.business || {}) },
   watermark: { ...defaultWatermark, ...(stored?.watermark || {}) },
   ai: { ...emptySettings.ai, ...(stored?.ai || {}) },
+  // Réglages d'avant la deuxième taxe : une seule, et c'est très bien
+  taxLabel2: stored?.taxLabel2 ?? emptySettings.taxLabel2,
+  taxRate2: Number(stored?.taxRate2 ?? emptySettings.taxRate2) || 0,
   counters: { ...emptyCounters, ...(stored?.counters || {}) }
 })
 
@@ -167,6 +177,42 @@ export const emptyItem = { id: '', description: '', unit: 'ea', rate: 0, taxable
 export const emptyExpense = { id: '', date: '', description: '', category: 'Matériel', amount: 0 }
 
 export const EXPENSE_CATEGORIES = ['Matériel', 'Essence', 'Outils', 'Sous-traitance', 'Repas', 'Autre']
+
+// Où l'entreprise facture, et les taxes qui vont avec. Les taux changent avec
+// les budgets : ils sont posés comme point de départ, et restent modifiables
+// dans les réglages. Deux taux quand la province en perçoit deux.
+export const REGIONS = [
+  { id: 'qc', label: 'Québec', taxLabel: 'TPS', taxRate: 5, taxLabel2: 'TVQ', taxRate2: 9.975 },
+  { id: 'on', label: 'Ontario', taxLabel: 'TVH', taxRate: 13 },
+  { id: 'ab', label: 'Alberta', taxLabel: 'TPS', taxRate: 5 },
+  { id: 'bc', label: 'Colombie-Britannique', taxLabel: 'TPS', taxRate: 5, taxLabel2: 'TVP', taxRate2: 7 },
+  { id: 'sk', label: 'Saskatchewan', taxLabel: 'TPS', taxRate: 5, taxLabel2: 'TVP', taxRate2: 6 },
+  { id: 'mb', label: 'Manitoba', taxLabel: 'TPS', taxRate: 5, taxLabel2: 'TVD', taxRate2: 7 },
+  { id: 'atl', label: 'N.-B. / N.-É. / Î.-P.-É. / T.-N.-L.', taxLabel: 'TVH', taxRate: 15 },
+  { id: 'ter', label: 'Yukon / T.N.-O. / Nunavut', taxLabel: 'TPS', taxRate: 5 },
+  { id: 'fr', label: 'France', taxLabel: 'TVA', taxRate: 20 },
+  { id: 'be', label: 'Belgique', taxLabel: 'TVA', taxRate: 21 },
+  { id: 'ch', label: 'Suisse', taxLabel: 'TVA', taxRate: 8.1 },
+  { id: 'us', label: 'États-Unis (taxe à saisir)', taxLabel: 'Sales tax', taxRate: 0 },
+  { id: 'none', label: 'Aucune taxe', taxLabel: 'Taxe', taxRate: 0, taxDefault: false }
+]
+
+export const regionById = id => REGIONS.find(r => r.id === id) || null
+
+// Ce qu'une région pose dans les réglages.
+export const applyRegion = (settings, id) => {
+  const r = regionById(id)
+  if (!r) return settings
+  return {
+    ...settings,
+    region: r.id,
+    taxLabel: r.taxLabel,
+    taxRate: r.taxRate,
+    taxLabel2: r.taxLabel2 || '',
+    taxRate2: r.taxRate2 || 0,
+    taxDefault: r.taxDefault !== false
+  }
+}
 
 // Unités suggérées (le champ reste libre : on peut taper n'importe quoi)
 export const UNITS = ['ea', 'h', 'pi²', 'pi lin.', 'verge²', 'jour', 'lot', 'km']
@@ -270,6 +316,7 @@ export const newDocument = (type, settings, docs) => ({
   lines: [],
   chargeTax: settings.taxDefault,
   taxRate: settings.taxRate,
+  taxRate2: settings.taxRate2 || 0,
   discountType: '$',
   discountValue: 0,
   notes: settings.defaultNotes,
@@ -346,11 +393,16 @@ export function calcTotals(doc) {
   const taxableSum = doc.lines.reduce((s, l) => s + (l.taxable !== false ? lineTotal(l) : 0), 0)
   const discountShare = subtotal > 0 ? taxableSum * (discount / subtotal) : 0
   const taxBase = Math.max(taxableSum - discountShare, 0)
+  // Deux taxes, parce que la moitié du pays en a deux : TPS + TVQ au Québec,
+  // TPS + TVP en Colombie-Britannique, en Saskatchewan, au Manitoba. Les
+  // afficher séparément n'est pas une coquetterie : c'est ce que le client
+  // doit voir sur la facture pour réclamer ses crédits de taxe.
   const tax = doc.chargeTax ? taxBase * (Number(doc.taxRate || 0) / 100) : 0
-  const total = subtotal - discount + tax
+  const tax2 = doc.chargeTax ? taxBase * (Number(doc.taxRate2 || 0) / 100) : 0
+  const total = subtotal - discount + tax + tax2
   const paid = (doc.payments || []).reduce((s, p) => s + Number(p.amount || 0), 0)
   const balance = total - paid
-  return { subtotal, discount, tax, total, paid, balance }
+  return { subtotal, discount, tax, tax2, total, paid, balance }
 }
 
 // Texte du courriel envoyé au client — partagé par l'éditeur et l'assistant
@@ -393,7 +445,8 @@ export function buildEmailBody(settings, doc, totals, link = '') {
     '',
     `Sous-total : ${money(totals.subtotal)}`,
     totals.discount > 0 ? `Remise : -${money(totals.discount)}` : null,
-    doc.chargeTax ? `${settings.taxLabel} (${doc.taxRate}%) : ${money(totals.tax)}` : null,
+    doc.chargeTax && Number(doc.taxRate) > 0 ? `${settings.taxLabel} (${doc.taxRate}%) : ${money(totals.tax)}` : null,
+    doc.chargeTax && Number(doc.taxRate2) > 0 ? `${settings.taxLabel2} (${doc.taxRate2}%) : ${money(totals.tax2)}` : null,
     `Total : ${money(totals.total)}`,
     totals.paid > 0 ? `Paiements : ${money(totals.paid)}` : null,
     totals.paid > 0 ? `Solde dû : ${money(totals.balance)}` : null,

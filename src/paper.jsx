@@ -135,7 +135,10 @@ export function InvoicePaper({ settings, doc, totals }) {
         {/* Taxe décochée : pas de ligne du tout, plutôt qu'un « Gst 0,00 $ »
             qui laisse croire au client qu'une taxe s'applique. Le PDF fabriqué
             fait pareil. */}
-        {doc.chargeTax && <p><span>{settings.taxLabel} ({doc.taxRate}%)</span><b>{money(totals.tax)}</b></p>}
+        {doc.chargeTax && Number(doc.taxRate) > 0 && <p><span>{settings.taxLabel} ({doc.taxRate}%)</span><b>{money(totals.tax)}</b></p>}
+        {/* Deuxième taxe (TVQ, TVP…) : sur sa propre ligne, comme la loi le
+            demande — le client doit pouvoir réclamer chaque crédit. */}
+        {doc.chargeTax && Number(doc.taxRate2) > 0 && <p><span>{settings.taxLabel2} ({doc.taxRate2}%)</span><b>{money(totals.tax2)}</b></p>}
         <p className="total"><span>Total</span><b>{money(totals.total)}</b></p>
         {totals.paid > 0 && <>
           <p><span>Paiements</span><b>-{money(totals.paid)}</b></p>

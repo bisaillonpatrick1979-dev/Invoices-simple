@@ -532,9 +532,9 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
         </Row>
         <Row>
           <span>
-            <label className="check inline"><input type="checkbox" checked={doc.chargeTax} onChange={e => set({ chargeTax: e.target.checked })}/> {settings.taxLabel} ({doc.taxRate}%)</label>
+            <label className="check inline"><input type="checkbox" checked={doc.chargeTax} onChange={e => set({ chargeTax: e.target.checked })}/> {settings.taxLabel} ({doc.taxRate}%){Number(doc.taxRate2) > 0 ? ` + ${settings.taxLabel2} (${doc.taxRate2}%)` : ''}</label>
           </span>
-          <b>{money(totals.tax)}</b>
+          <b>{money(totals.tax + totals.tax2)}</b>
         </Row>
         <Row><span>Total</span><b>{money(totals.total)}</b></Row>
         <Row><span>Paiements</span><b>{money(totals.paid)}</b></Row>

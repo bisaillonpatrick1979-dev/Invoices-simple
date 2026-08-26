@@ -2,6 +2,22 @@
 
 Application de facturation avec une interface calquée sur les captures d'écran de l'app mobile de référence : thème bleu, barre d'onglets en bas, listes groupées par année et éditeur en rangées de cartes.
 
+## Une app neuve n'appartient à personne
+
+À la première ouverture d'une installation vierge, l'app pose trois questions, et rien d'autre :
+
+1. **Où factures-tu ?** — Québec, Ontario, Alberta, C.-B., Saskatchewan, Manitoba, provinces de l'Atlantique, territoires, France, Belgique, Suisse, États-Unis, ou aucune taxe. Le choix pose les taxes ; elles restent modifiables dans les réglages, parce que les taux changent avec les budgets.
+2. **Ton entreprise** — nom, téléphone, courriel, ville. C'est l'entête des factures.
+3. **Ton compte** — courriel et **mot de passe choisi par la personne**. C'est lui qui garde ses factures et les retrouve sur son autre appareil. Chaque compte ne voit que ses propres données ; les règles de sécurité de la base le garantissent, ce n'est pas une question de confiance.
+
+Chaque étape est sautable : on peut monter une facture avant de se nommer.
+
+**Rien n'est prérempli.** Pas de nom de compagnie, pas de ville, pas de catalogue de départ. Une liste de prix appartient à celui qui l'a bâtie : un couvreur de Marseille n'a que faire d'un prix de soffite en pieds carrés d'Alberta. Le catalogue se remplit tout seul, au fil des factures.
+
+### Deux taxes quand il en faut deux
+
+Le Québec perçoit la TPS **et** la TVQ ; la Colombie-Britannique, la Saskatchewan et le Manitoba ont aussi leur taxe provinciale. L'app affiche les deux sur leur propre ligne — dans l'app, sur le PDF et dans le courriel — parce que c'est ce que le client doit voir pour réclamer ses crédits de taxe. Une seule taxe (TVH, TVA, GST seule) : la deuxième ligne n'apparaît nulle part.
+
 ## Navigation (barre du bas)
 
 - **Factures** — onglets Toutes / Non payées / Payées, groupées par année avec total annuel, mention verte « Payé le ... »

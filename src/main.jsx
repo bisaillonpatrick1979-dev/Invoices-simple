@@ -22,6 +22,7 @@ import {
 } from './share.js'
 import { SharedInvoice, shareTokenFromUrl } from './shared.jsx'
 import { CANONICAL_URL, HostNotice, hostNotice, SignInNotice } from './notices.jsx'
+import { needsWelcome, Welcome } from './welcome.jsx'
 import './styles.css'
 
 // Une modification n'est pas envoyée tout de suite : sur un chantier, on
@@ -75,6 +76,9 @@ function App() {
   const [seenView, setSeenView] = useState(lastSeenView)
   // Avis d'adresse et invitation à se connecter : écartés une fois, ils ne
   // reviennent pas harceler à chaque ouverture.
+  // Première ouverture d'une app neuve : on demande la région, l'entreprise et
+  // le compte avant tout le reste. Une fois passé, on n'y revient plus.
+  const [welcomeDone, setWelcomeDone] = useState(() => load('is_welcome_done', false))
   const [hostOff, setHostOff] = useState(() => load('is_host_notice_off', false))
   const [signInOff, setSignInOff] = useState(() => load('is_signin_notice_off', false))
   const badHost = hostNotice()
@@ -267,6 +271,14 @@ function App() {
     setTab(id)
   }
 
+  // Évalué UNE fois, au montage : sinon la première réponse (« Québec ») fait
+  // que l'app ne se croit plus vierge et l'écran de bienvenue disparaît au
+  // milieu de la conversation. Une session qui se rétablit y met fin aussi :
+  // quelqu'un de déjà connecté n'a rien à se présenter.
+  const blankAtStart = useRef(needsWelcome(settings, docs, clients)).current
+  const showWelcome = blankAtStart && !welcomeDone && !cloud.user
+  const finishWelcome = () => { save('is_welcome_done', true); setWelcomeDone(true) }
+
   const screen = editing
     ? <DocumentEditor
         key={editing.id}
@@ -316,6 +328,21 @@ function App() {
   const activeNav = editing
     ? (editing.docType === 'invoice' ? 'factures' : 'devis')
     : (['clients', 'articles', 'depenses', 'rapports', 'settings'].includes(tab) ? 'plus' : tab)
+
+  // L'écran de bienvenue occupe toute la place : ni onglets, ni bulles, ni
+  // avis. On ne demande pas à quelqu'un de se présenter par-dessus une liste
+  // de factures qui ne sont pas les siennes.
+  if (showWelcome) {
+    return <div className="app">
+      <div className="phone">
+        <Welcome
+          settings={settings}
+          onSettings={setSettings}
+          onDone={finishWelcome}
+        />
+      </div>
+    </div>
+  }
 
   return (
     <div className="app">

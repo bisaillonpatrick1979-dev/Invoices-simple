@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import { ArrowLeft, Cloud, Eye, HardDriveDownload, HardDriveUpload, Hash, Link2, Sparkles } from 'lucide-react'
 import {
-  countersFromDocs, defaultWatermark, emptySettings, nextNumber, numberRank,
-  readImageFile, sampleDocument
+  applyRegion, countersFromDocs, defaultWatermark, emptySettings, nextNumber,
+  numberRank, readImageFile, REGIONS, sampleDocument
 } from './store.js'
 import { AI_PROVIDERS, aiProvider, askAi } from './ai.js'
 import { applyBackup, backupCounts, downloadBackup, readBackupFile } from './backup.js'
@@ -258,9 +258,21 @@ export function SettingsScreen({ settings, setSettings, cloud, data, onBack }) {
 
       <div className="edit-card padded">
         <h2 className="section-title">Taxe & documents</h2>
+        <Field label="Région (pose les taxes)">
+          <select value={settings.region || ''} onChange={e => setSettings(applyRegion(settings, e.target.value))}>
+            <option value="">Réglage manuel</option>
+            {REGIONS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+          </select>
+        </Field>
         <div className="pair">
-          <Field label="Nom de la taxe"><input value={settings.taxLabel} onChange={e => setSettings({ ...settings, taxLabel: e.target.value })}/></Field>
-          <Field label="Taux %"><input type="number" value={settings.taxRate} onChange={e => setSettings({ ...settings, taxRate: Number(e.target.value) })}/></Field>
+          <Field label="Nom de la taxe"><input value={settings.taxLabel} onChange={e => setSettings({ ...settings, taxLabel: e.target.value, region: '' })}/></Field>
+          <Field label="Taux %"><input type="number" step="0.001" value={settings.taxRate} onChange={e => setSettings({ ...settings, taxRate: Number(e.target.value), region: '' })}/></Field>
+        </div>
+        {/* Deuxième taxe : TVQ au Québec, TVP en C.-B. ou en Saskatchewan.
+            Laissée vide, elle n'apparaît nulle part. */}
+        <div className="pair">
+          <Field label="2e taxe (facultatif)"><input placeholder="TVQ, TVP…" value={settings.taxLabel2 || ''} onChange={e => setSettings({ ...settings, taxLabel2: e.target.value, region: '' })}/></Field>
+          <Field label="Taux %"><input type="number" step="0.001" value={settings.taxRate2 || 0} onChange={e => setSettings({ ...settings, taxRate2: Number(e.target.value), region: '' })}/></Field>
         </div>
         <label className="check">
           <input type="checkbox" checked={settings.taxDefault} onChange={e => setSettings({ ...settings, taxDefault: e.target.checked })}/>

@@ -1,9 +1,13 @@
-// Liste de prix de départ.
+// Liste de prix de départ — POUR L'INSTALLATION D'ORIGINE SEULEMENT.
 //
-// Recopiée depuis le catalogue de l'appareil, pour qu'une nouvelle adresse ou
-// un nouveau téléphone ne reparte pas d'une liste vide. Elle ne se pose qu'une
-// fois, et seulement si le catalogue est vide : elle ne vient jamais écraser
-// un prix modifié, ni ressusciter un article supprimé.
+// Ces prix sont ceux d'une entreprise précise. Les poser dans l'app de
+// quelqu'un d'autre n'aurait aucun sens : un couvreur de Marseille n'a que
+// faire d'un prix de soffite en pieds carrés d'Alberta. Une installation neuve
+// démarre donc avec un catalogue VIDE, et se remplit au fil des factures.
+//
+// La liste ne subsiste que là où elle a déjà été posée : les appareils qui la
+// connaissent déjà la gardent, la synchro la leur rend. `is_seeded` marque ces
+// installations-là.
 
 import { load, save } from './store.js'
 
@@ -27,12 +31,9 @@ export const STARTER_ITEMS = [
 ]
 
 function seedItems(current) {
-  if (load(SEEDED_KEY, false)) return current
-  save(SEEDED_KEY, true)
-  // Un catalogue déjà rempli (restauré, synchronisé, ou monté à la main) est
-  // le bon : on le laisse tranquille.
-  if ((current || []).length) return current
-  return STARTER_ITEMS.map(i => ({ ...i }))
+  // Rien à poser : une app neuve part d'un catalogue vide.
+  if (!load(SEEDED_KEY, false)) save(SEEDED_KEY, true)
+  return current || []
 }
 
 // La liste de départ a d'abord été posée non taxable, recopiée d'une capture

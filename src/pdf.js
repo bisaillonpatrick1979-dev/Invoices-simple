@@ -266,7 +266,8 @@ export async function buildPdf(settings, doc) {
   }
   row('Sous-total', money(totals.subtotal))
   if (totals.discount > 0) row('Remise', `-${money(totals.discount)}`)
-  if (doc.chargeTax) row(`${settings.taxLabel} (${doc.taxRate} %)`, money(totals.tax))
+  if (doc.chargeTax && Number(doc.taxRate) > 0) row(`${settings.taxLabel} (${doc.taxRate} %)`, money(totals.tax))
+  if (doc.chargeTax && Number(doc.taxRate2) > 0) row(`${settings.taxLabel2} (${doc.taxRate2} %)`, money(totals.tax2))
   pdf.setDrawColor(...accent)
   pdf.setLineWidth(0.5)
   pdf.line(labelX, y - 3.6, W - M, y - 3.6)
