@@ -172,6 +172,21 @@ Les adresses du genre `invoices-simple-<jeton>-…` sont celles d'une mise en li
 
 Les deux bandeaux se ferment d'une touche et ne reviennent plus.
 
+### Pourquoi l'app peut paraître vide alors que le nuage est plein
+
+Ce n'est pas le déploiement qui efface quoi que ce soit. Deux mécanismes se combinent :
+
+1. **Les données du navigateur sont rangées par adresse.** `invoices-simple.vercel.app` et `invoices-simple-ixjtuo8us-…vercel.app` sont deux réserves étanches. Ouvrir la seconde, c'est ouvrir une app neuve.
+2. **La connexion au nuage est rangée au même endroit.** Sur une adresse où tu ne t'es jamais connecté, l'app ne sait pas de quel compte elle est : elle ne peut donc pas rapatrier les factures, et rien ne descend.
+
+D'où l'impression que « le nuage n'est pas branché » : il l'est, mais sur l'autre adresse.
+
+Ce que l'app fait maintenant :
+
+- **elle déménage toute seule.** Ouverte sur l'adresse d'un déploiement alors qu'il n'y a rien à perdre, elle bascule sur `invoices-simple.vercel.app` en gardant le chemin — un lien de facture ouvert par erreur arrive quand même à destination ;
+- **elle ne déménage pas de force** s'il y a déjà des factures sur cette adresse-là : ce serait les abandonner. Le bandeau jaune prend le relais ;
+- **un appareil vide n'efface jamais le nuage.** Si la mémoire du navigateur a été vidée, la synchro rapatrie au lieu de propager la disparition.
+
 ### Et les redéploiements ?
 
 Un redéploiement à la **même adresse** ne touche à rien : ni au navigateur, ni au nuage. Ce qui fait perdre des données, c'est de travailler sur une adresse de déploiement qui, elle, disparaît. Garde `invoices-simple.vercel.app`, reste connecté à la sauvegarde infonuagique, et rien ne bouge — même si l'app est redéployée dix fois par jour.

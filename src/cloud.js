@@ -176,6 +176,13 @@ const ts = v => (v ? new Date(v).getTime() : 0)
 export function reconcile(localList, remoteRows, snap) {
   const remote = new Map(remoteRows.map(r => [r.id, r]))
   const locals = new Map(localList.map(x => [x.id, x]))
+  // Un appareil qui n'a plus RIEN d'une collection ne parle pas au nom de la
+  // vérité : mémoire du navigateur vidée, écriture refusée faute de place,
+  // profil neuf… Dans ce cas on rapatrie, on n'efface jamais. Le prix : vider
+  // volontairement une liste au complet ne se propage pas — elle redescend à
+  // la synchro suivante. C'est le bon prix : perdre toutes ses factures parce
+  // qu'un navigateur a fait le ménage ne se répare pas.
+  const localEmpty = localList.length === 0 && remoteRows.some(r => !r.deleted_at)
   const merged = []
   const upsert = []
   const remove = []
@@ -211,8 +218,10 @@ export function reconcile(localList, remoteRows, snap) {
   for (const r of remoteRows) {
     if (locals.has(r.id)) continue
     if (r.deleted_at) continue
-    // Connu à la dernière synchro mais disparu d'ici : supprimé sur cet appareil.
-    if (snap[r.id]) { remove.push(r.id); continue }
+    // Connu à la dernière synchro mais disparu d'ici : supprimé sur cet
+    // appareil — sauf si TOUT a disparu d'ici, auquel cas c'est l'appareil qui
+    // a perdu la mémoire, pas l'utilisateur qui a effacé.
+    if (snap[r.id] && !localEmpty) { remove.push(r.id); continue }
     pull.push(r.id)                                       // arrivé d'un autre appareil
     nextSnap[r.id] = { at: r.updated_at }
   }

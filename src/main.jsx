@@ -21,7 +21,7 @@ import {
   pullShareActivity, shareState
 } from './share.js'
 import { SharedInvoice, shareTokenFromUrl } from './shared.jsx'
-import { HostNotice, hostNotice, SignInNotice } from './notices.jsx'
+import { CANONICAL_URL, HostNotice, hostNotice, SignInNotice } from './notices.jsx'
 import './styles.css'
 
 // Une modification n'est pas envoyée tout de suite : sur un chantier, on
@@ -398,6 +398,24 @@ function App() {
     </div>
   )
 }
+
+// Adresse d'un déploiement précis, et rien à perdre ici : on file sur la
+// bonne adresse sans rien demander. C'est là que vivent les données, et c'est
+// elle qui ne change pas d'un déploiement à l'autre. Le chemin est conservé,
+// donc un lien de facture ouvert par erreur sur la mauvaise adresse arrive
+// quand même à destination.
+//
+// S'il y a déjà quelque chose ici, on ne redirige pas : ce serait abandonner
+// ce que la personne a saisi. Le bandeau prend alors le relais.
+try {
+  const vide = ['is_docs', 'is_clients', 'is_items'].every(k => {
+    const v = JSON.parse(localStorage.getItem(k) || '[]')
+    return !Array.isArray(v) || v.length === 0
+  })
+  if (vide && hostNotice()?.kind === 'deployment') {
+    location.replace(CANONICAL_URL + location.pathname + location.search + location.hash)
+  }
+} catch { /* pas de mémoire lisible : on reste ici plutôt que de tourner en rond */ }
 
 // Un lien de facture n'ouvre pas l'application : il ouvre la facture, et
 // rien d'autre. « ?apercu=1 » sert au propriétaire à vérifier son lien sans
