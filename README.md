@@ -187,6 +187,23 @@ L'app compare ce qui est parti chez le client (montants, lignes, chantier, clien
 
 Le numéro de facture ne change pas — c'est la même facture, à sa deuxième version. Un troisième envoi donne la révision 3, et ainsi de suite. Tant que le renvoi n'est pas fait, la pastille rouge reste : impossible d'oublier qu'un client se promène avec le mauvais montant.
 
+## Encaisser, et remettre un reçu
+
+Quand l'argent entre, **Marquer comme payée** demande deux choses : le montant reçu (le solde est proposé d'avance) et **comment** il est entré — virement Interac, chèque, comptant, virement bancaire, carte, autre. Le panneau affiche le solde qui restera après ce versement.
+
+Puis le reçu se fait tout seul, et l'app propose de l'**envoyer sur-le-champ** : PDF en pièce jointe, par courriel ou par texto, comme une facture. Un reçu qu'il faut aller chercher dans un menu ne part jamais.
+
+Le document dit tout ce qu'un comptable demande :
+
+- **REÇU no REÇU0002**, sa propre suite de numéros, séparée de celle des factures ;
+- reçu de **qui**, en paiement de **quelle facture** et de quel chantier ;
+- le **montant reçu**, en gros, avec le mode de paiement ;
+- total de la facture, versements reçus à ce jour, **solde restant** ;
+- le verdict en toutes lettres : **FACTURE PAYÉE EN ENTIER** en vert, ou **PAIEMENT PARTIEL** en rouge avec ce qu'il reste ;
+- une ligne de signature pour l'entreprise.
+
+Un paiement partiel donne son propre reçu : la 700 $ du 20 août dit « il reste 985,00 $ », celui du solde dit « rien ne reste dû ». Chaque reçu se remet en main autant de fois qu'il le faut — même numéro, même contenu, depuis la liste des paiements ou le bouton **Remettre le reçu du dernier paiement**.
+
 ## Numérotation : reprendre là où tu es rendu
 
 L'app retient **le plus haut numéro déjà utilisé**, pour les factures comme pour les devis, et donne toujours le suivant.

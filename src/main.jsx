@@ -302,6 +302,7 @@ function App() {
           setTab('factures')
           setEditing(stored)
         }}
+        onSettings={setSettings}
         share={shares[editing.id] || null}
         onShareChange={() => refreshShares()}
         cloudUser={cloud.user}

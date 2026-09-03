@@ -5,7 +5,7 @@
 // courriel avec la facture attachée demande le fichier en main. D'où ce
 // deuxième rendu, dessiné au trait, qui suit l'aperçu à l'écran.
 
-import { calcTotals, fmtDate, fmtStamp, lineTotal, money, revisionInfo } from './store.js'
+import { calcTotals, fmtDate, fmtStamp, lineTotal, money, receiptData, revisionInfo } from './store.js'
 
 // jsPDF pèse plus que toute l'app réunie. Il n'est téléchargé qu'au premier
 // PDF demandé, pas au démarrage : sur un chantier, on ouvre l'app bien plus
@@ -326,6 +326,149 @@ export async function buildPdf(settings, doc) {
   return pdf
 }
 
+// ===== Reçu de paiement =====
+//
+// Un document court et sans ambiguïté : qui a payé, combien, quand, comment,
+// sur quelle facture, et ce qu'il reste à payer. C'est la preuve que le client
+// classe — et celle qu'il sort quand quelqu'un lui redemande le même montant
+// six mois plus tard.
+export async function buildReceiptPdf(settings, doc, paymentId) {
+  const jsPDF = await loadJsPDF()
+  const r = receiptData(doc, paymentId)
+  if (!r) throw new Error('Ce paiement est introuvable.')
+  const b = settings.business || {}
+  const accent = hex(settings.accent)
+  const pdf = new jsPDF({ unit: 'mm', format: [W, H] })
+
+  let y = M
+  const text = (t, x, opts = {}) => {
+    pdf.setFont('helvetica', opts.bold ? 'bold' : 'normal')
+    pdf.setFontSize(opts.size || 10)
+    pdf.setTextColor(...(opts.color || [17, 24, 39]))
+    pdf.text(clean(t), x, y, opts.align ? { align: opts.align } : undefined)
+  }
+
+  // ----- Entête -----
+  if (settings.logo && settings.logoOnPdf !== false) {
+    try {
+      const props = pdf.getImageProperties(settings.logo)
+      const h = Math.min(18, (props.height / props.width) * 34)
+      pdf.addImage(settings.logo, M, y - 2, (props.width / props.height) * h, h)
+      y += h + 2
+    } catch { /* logo illisible : on continue sans */ }
+  }
+  const headTop = y
+  text(b.name || '', M, { bold: true, size: 17, color: accent })
+  y += LINE + 1.5
+  for (const l of [b.owner, b.address, b.city, b.phone, b.email].filter(Boolean)) {
+    text(l, M, { size: 9.5, color: [90, 98, 112] })
+    y += LINE - 0.6
+  }
+  const leftEnd = y
+
+  y = headTop
+  text('REÇU', W - M, { bold: true, size: 20, align: 'right', color: accent })
+  y += LINE + 2
+  if (r.number) { text(`No : ${r.number}`, W - M, { size: 10, align: 'right' }); y += LINE }
+  text(`Date : ${fmtDate(r.date)}`, W - M, { size: 10, align: 'right' })
+  y = Math.max(y + LINE, leftEnd) + 2
+
+  pdf.setDrawColor(...accent)
+  pdf.setLineWidth(0.8)
+  pdf.line(M, y, W - M, y)
+  y += 9
+
+  // ----- De qui, pour quoi -----
+  text('REÇU DE', M, { bold: true, size: 8, color: accent })
+  y += LINE
+  text(doc.client?.name || '', M, { bold: true, size: 12 })
+  y += LINE + 3
+
+  text('EN PAIEMENT DE', M, { bold: true, size: 8, color: accent })
+  y += LINE
+  text(`Facture ${doc.number}${doc.date ? ` du ${fmtDate(doc.date)}` : ''}`, M, { size: 11 })
+  y += LINE
+  if (doc.siteAddress) {
+    for (const ligne of String(doc.siteAddress).split('\n').filter(Boolean)) {
+      text(ligne, M, { size: 10, color: [90, 98, 112] })
+      y += LINE - 0.6
+    }
+  }
+  y += 6
+
+  // ----- Le montant, en gros : c'est ce qu'on vient lire -----
+  pdf.saveGraphicsState()
+  pdf.setGState(new pdf.GState({ opacity: 0.07 }))
+  pdf.setFillColor(...accent)
+  pdf.rect(M, y - 1, W - 2 * M, 26, 'F')
+  pdf.restoreGraphicsState()
+  y += 8
+  text('MONTANT REÇU', M + 5, { bold: true, size: 8, color: accent })
+  text(money(r.amount), W - M - 5, { bold: true, size: 20, align: 'right', color: accent })
+  y += 9
+  text(`Mode de paiement : ${r.method}`, M + 5, { size: 10, color: [70, 78, 92] })
+  y += 16
+
+  // ----- L'état de la facture après ce versement -----
+  const rowW = 70
+  const row = (label, valeur, opts = {}) => {
+    text(label, W - M - rowW, { size: opts.bold ? 11 : 10, bold: opts.bold, color: opts.color })
+    text(valeur, W - M, { size: opts.bold ? 11 : 10, bold: opts.bold, align: 'right', color: opts.color })
+    y += LINE + 1
+  }
+  row('Total de la facture', money(r.invoiceTotal))
+  row('Versements reçus', money(r.paidToDate))
+  pdf.setDrawColor(210, 214, 222)
+  pdf.setLineWidth(0.3)
+  pdf.line(W - M - rowW, y - 3, W - M, y - 3)
+  y += 1
+  row('Solde restant', money(r.remaining), { bold: true, color: r.settled ? [46, 125, 50] : [176, 42, 42] })
+  y += 6
+
+  // ----- Le verdict, écrit en toutes lettres -----
+  const verdict = r.settled ? 'FACTURE PAYÉE EN ENTIER' : 'PAIEMENT PARTIEL'
+  const vert = r.settled ? [46, 125, 50] : [176, 42, 42]
+  pdf.saveGraphicsState()
+  pdf.setGState(new pdf.GState({ opacity: 0.1 }))
+  pdf.setFillColor(...vert)
+  pdf.roundedRect(M, y, 78, 12, 2, 2, 'F')
+  pdf.restoreGraphicsState()
+  y += 8
+  text(verdict, M + 6, { bold: true, size: 11, color: vert })
+  y += 12
+
+  text(
+    r.settled
+      ? 'Merci. Rien ne reste dû sur cette facture.'
+      : `Merci. Il reste ${money(r.remaining)} à payer sur cette facture.`,
+    M, { size: 10, color: [70, 78, 92] }
+  )
+  y += LINE + 12
+
+  // ----- Signature de celui qui reçoit -----
+  pdf.setDrawColor(180, 186, 196)
+  pdf.setLineWidth(0.2)
+  pdf.line(M, y, M + 70, y)
+  y += 4
+  text(`Pour ${b.name || 'l’entreprise'}`, M, { size: 8, color: [120, 128, 140] })
+
+  // ----- Pied de page -----
+  const pied = [b.name, b.phone, b.email].filter(Boolean).join('  •  ')
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(8)
+  pdf.setTextColor(140, 146, 158)
+  pdf.text(clean(pied), W / 2, H - 8, { align: 'center' })
+
+  return pdf
+}
+
+// « REÇU0001 » ne doit pas devenir « RE-U0001 » : on remplace les accents par
+// leur lettre nue avant de nettoyer le reste.
+const sansAccents = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+
+export const receiptFileName = (doc, r) =>
+  `${sansAccents(r?.number || `recu-${doc.number || ''}`).replace(/[^\w.-]+/g, '-')}.pdf`
+
 export const pdfFileName = doc =>
   `${String(doc.number || 'facture').replace(/[^\w.-]+/g, '-')}.pdf`
 
@@ -335,15 +478,39 @@ export async function pdfFile(settings, doc) {
   return new File([await pdfBlob(settings, doc)], pdfFileName(doc), { type: 'application/pdf' })
 }
 
-export async function downloadPdf(settings, doc) {
-  const url = URL.createObjectURL(await pdfBlob(settings, doc))
+// Enregistrer un fichier depuis le navigateur : le même geste pour une facture
+// et pour un reçu.
+function saveBlob(blob, name) {
+  const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = pdfFileName(doc)
+  a.download = name
   document.body.appendChild(a)
   a.click()
   a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 4000)
+}
+
+export async function downloadPdf(settings, doc) {
+  saveBlob(await pdfBlob(settings, doc), pdfFileName(doc))
+}
+
+// ===== Reçu : mêmes chemins que la facture =====
+export async function receiptFile(settings, doc, paymentId) {
+  const pdf = await buildReceiptPdf(settings, doc, paymentId)
+  const r = receiptData(doc, paymentId)
+  return new File([pdf.output('blob')], receiptFileName(doc, r), { type: 'application/pdf' })
+}
+
+export async function downloadReceipt(settings, doc, paymentId) {
+  const pdf = await buildReceiptPdf(settings, doc, paymentId)
+  saveBlob(pdf.output('blob'), receiptFileName(doc, receiptData(doc, paymentId)))
+}
+
+export async function shareReceipt(settings, doc, paymentId, { title, text }) {
+  const file = await receiptFile(settings, doc, paymentId)
+  if (!navigator.canShare?.({ files: [file] })) throw new Error('nofiles')
+  await navigator.share({ files: [file], title, text })
 }
 
 // Le partage natif du téléphone : il ouvre Messages, Gmail, WhatsApp… avec le

@@ -2,19 +2,22 @@ import React, { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft, MoreVertical, ChevronRight, Send, Paperclip, Trash2,
   Mail, MessageSquare, Printer, Clock, X, Maximize2, PenLine, Eye, MapPin,
-  Share2, Download, Link2, Copy, EyeOff, CheckCheck
+  Share2, Download, Link2, Copy, EyeOff, CheckCheck, ReceiptText, Check
 } from 'lucide-react'
 import {
   buildEmailBody, buildSmsBody, calcTotals, contactLabel, docStatus, duplicateNumber, fmtDate, fmtStamp,
-  isRevised, lineTotal, markSent, money, newLine, parseNum, SENT_EVENT,
-  suggestItems, uid, today, emptyClient, withEvent, UNITS
+  isRevised, lineTotal, markSent, money, newLine, nextReceiptNumber, parseNum,
+  PAYMENT_METHODS, receiptData, SENT_EVENT, suggestItems, uid, today, emptyClient,
+  withEvent, UNITS
 } from './store.js'
-import { canSharePdf, downloadPdf, sharePdf } from './pdf.js'
+import { canSharePdf, downloadPdf, downloadReceipt, sharePdf, shareReceipt } from './pdf.js'
 import {
   agoFr, channelLabel, channelsOf, fmtViewedAt, publishShare, restoreShare,
   revokeShare, seenCurrent, shareUrl, tokenFor
 } from './share.js'
 import { AppBar, NumField } from './lists.jsx'
+
+const Field = ({ label, children }) => <label className="field"><span>{label}</span>{children}</label>
 import { InvoicePaper } from './paper.jsx'
 
 const EDITOR_TABS = [
@@ -59,7 +62,7 @@ function Row({ children, onClick, chevron, bold, className = '' }) {
   </Tag>
 }
 
-export function DocumentEditor({ doc, settings, clients, items, docs = [], share, cloudUser, onShareChange, onChange, onSave, onDelete, onConvert, onSaveClient, onSaveItem, onOpenSettings, onClose }) {
+export function DocumentEditor({ doc, settings, clients, items, docs = [], share, cloudUser, onShareChange, onSettings, onChange, onSave, onDelete, onConvert, onSaveClient, onSaveItem, onOpenSettings, onClose }) {
   const [view, setView] = useState('edit')
   const [sendOpen, setSendOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -277,22 +280,71 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
     ))
   }
 
-  const markPaid = () => {
+  // Encaisser, c'est trois choses : noter le montant, dire comment il est
+  // entré, et remettre une preuve. Les trois se suivent sans qu'on ait à y
+  // penser — un reçu qu'il faut aller chercher dans un menu ne part jamais.
+  const [payOpenSheet, setPayOpenSheet] = useState(null)   // { amount, method }
+  const [receiptFor, setReceiptFor] = useState(null)       // paiement à remettre
+  const [receiptBusy, setReceiptBusy] = useState('')
+
+  const openPayment = () => {
     if (totals.balance <= 0) return
-    persist(withEvent({
-      ...doc,
-      payments: [...(doc.payments || []), { id: uid(), date: today(), amount: Number(totals.balance.toFixed(2)), method: 'Autre' }]
-    }, `Marquée comme payée (${money(totals.balance)})`))
+    setPayOpenSheet({ amount: Number(totals.balance.toFixed(2)), method: PAYMENT_METHODS[0] })
   }
 
-  const addPayment = () => {
-    const amount = parseNum(prompt('Montant du paiement :', totals.balance > 0 ? totals.balance.toFixed(2) : ''))
-    if (!amount || amount <= 0) return
-    persist(withEvent({
+  const confirmPayment = () => {
+    const montant = Number(payOpenSheet?.amount || 0)
+    if (!montant || montant <= 0) return
+    const numero = nextReceiptNumber(settings)
+    const paiement = { id: uid(), date: today(), amount: montant, method: payOpenSheet.method, receiptNo: numero }
+    const solde = totals.balance - montant
+    const saved = persist(withEvent({
       ...doc,
-      payments: [...(doc.payments || []), { id: uid(), date: today(), amount, method: 'Paiement' }]
-    }, `Paiement ajouté (${money(amount)})`))
+      payments: [...(doc.payments || []), paiement]
+    }, `${solde <= 0.005 ? 'Payée' : 'Paiement'} — ${money(montant)} (${paiement.method}) · reçu ${numero}`))
+    // le compteur de reçus avance, comme celui des factures
+    onSettings?.({ ...settings, counters: { ...(settings.counters || {}), receipt: Number(settings.counters?.receipt || 0) + 1 } })
+    setPayOpenSheet(null)
+    setReceiptFor({ doc: saved, paymentId: paiement.id })
   }
+
+  const sendReceipt = async () => {
+    if (!receiptFor) return
+    setReceiptBusy('share')
+    try {
+      const r = receiptData(receiptFor.doc, receiptFor.paymentId)
+      await shareReceipt(settings, receiptFor.doc, receiptFor.paymentId, {
+        title: `Reçu ${r.number} — ${settings.business.name}`,
+        text: `Bonjour ${receiptFor.doc.client?.name || ''}, voici votre reçu pour ${money(r.amount)} sur la facture ${receiptFor.doc.number}.`.trim()
+      })
+      persist(withEvent(receiptFor.doc, `Reçu ${r.number} envoyé`))
+      setReceiptFor(null)
+    } catch (e) {
+      if (e?.name === 'AbortError') return
+      setShareError("Ce navigateur n'a pas voulu partager le fichier. Enregistre le reçu, puis joins-le à ton message.")
+    } finally {
+      setReceiptBusy('')
+    }
+  }
+
+  const saveReceipt = async () => {
+    if (!receiptFor) return
+    setReceiptBusy('save')
+    try {
+      const r = receiptData(receiptFor.doc, receiptFor.paymentId)
+      await downloadReceipt(settings, receiptFor.doc, receiptFor.paymentId)
+      persist(withEvent(receiptFor.doc, `Reçu ${r.number} enregistré`))
+      setReceiptFor(null)
+    } catch {
+      setShareError("Le reçu n'a pas pu être créé.")
+    } finally {
+      setReceiptBusy('')
+    }
+  }
+
+  // Un reçu déjà émis se remet en main autant de fois qu'il le faut : même
+  // numéro, même contenu.
+  const lastPayment = (doc.payments || [])[(doc.payments || []).length - 1]
 
   const convert = () => {
     const inv = withEvent({
@@ -552,11 +604,12 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
         {payOpen && <div className="row-detail">
           {(doc.payments || []).length === 0 && <p className="hint">Aucun paiement enregistré.</p>}
           {(doc.payments || []).map(p => <div className="payment-row" key={p.id}>
-            <span>{fmtDate(p.date)} — {p.method}</span>
+            <span>{fmtDate(p.date)} — {p.method}{p.receiptNo ? ` · ${p.receiptNo}` : ''}</span>
             <b>{money(p.amount)}</b>
+            <button className="icon" title="Reçu" onClick={() => setReceiptFor({ doc, paymentId: p.id })}><ReceiptText size={15}/></button>
             <button className="icon danger" onClick={() => set({ payments: doc.payments.filter(x => x.id !== p.id) })}><Trash2 size={15}/></button>
           </div>)}
-          <button className="link-btn" onClick={addPayment}>Enregistrer un paiement</button>
+          <button className="link-btn" onClick={openPayment}>Enregistrer un paiement</button>
         </div>}
       </div>}
 
@@ -654,7 +707,11 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
           : "N'envoie rien : à utiliser quand la facture est partie autrement (en main propre, d'un autre appareil)"}</small>
       </button>}
       {isInvoice && totals.balance > 0.005 && totals.total > 0 &&
-        <button className="outline-btn" onClick={markPaid}>Marquer comme payée</button>}
+        <button className="outline-btn" onClick={openPayment}>Marquer comme payée</button>}
+      {isInvoice && lastPayment &&
+        <button className="outline-btn" onClick={() => setReceiptFor({ doc, paymentId: lastPayment.id })}>
+          Remettre le reçu du dernier paiement
+        </button>}
       {!isInvoice && !doc.closed &&
         <button className="outline-btn" onClick={convert}>Convertir en facture</button>}
     </div>}
@@ -716,6 +773,52 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
             </button>
             <button onClick={copyLink} disabled={!!linkBusy}><Copy size={19}/> Copier le lien</button>
           </>}
+        </div>
+      </div>}
+
+      {/* Encaisser : le montant, et par quel moyen l'argent est entré. */}
+      {payOpenSheet && <div className="menu-backdrop no-print" onClick={() => setPayOpenSheet(null)}>
+        <div className="send-menu pay-sheet" onClick={e => e.stopPropagation()}>
+          <h4>Paiement reçu</h4>
+          <div className="pay-fields">
+            <Field label="Montant reçu">
+              <NumField value={payOpenSheet.amount} onChange={v => setPayOpenSheet(s => ({ ...s, amount: v }))}/>
+            </Field>
+            <Field label="Comment ?">
+              <select value={payOpenSheet.method} onChange={e => setPayOpenSheet(s => ({ ...s, method: e.target.value }))}>
+                {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </Field>
+            <p className="hint small-note">
+              Solde après ce paiement : <b>{money(Math.max(totals.balance - Number(payOpenSheet.amount || 0), 0))}</b>
+            </p>
+          </div>
+          <button className="primary wide" onClick={confirmPayment}>
+            <Check size={17}/> Enregistrer et faire le reçu
+          </button>
+          <button className="link-btn centered" onClick={() => setPayOpenSheet(null)}>Annuler</button>
+        </div>
+      </div>}
+
+      {/* Le reçu : la preuve que l'argent est entré, remise au client. */}
+      {receiptFor && <div className="menu-backdrop no-print" onClick={() => setReceiptFor(null)}>
+        <div className="send-menu pay-sheet" onClick={e => e.stopPropagation()}>
+          {(() => {
+            const r = receiptData(receiptFor.doc, receiptFor.paymentId)
+            if (!r) return <p className="hint small-note padded">Ce paiement est introuvable.</p>
+            return <>
+              <h4>{r.settled ? 'Facture payée en entier' : 'Paiement partiel'}</h4>
+              <p className="hint small-note padded">
+                Reçu <b>{r.number}</b> · {money(r.amount)} — {r.method}, le {fmtDate(r.date)}.
+                {r.settled ? ' Rien ne reste dû.' : ` Il reste ${money(r.remaining)}.`}
+              </p>
+              {shareable && <button onClick={sendReceipt} disabled={!!receiptBusy}>
+                <Share2 size={19}/> <span>Envoyer le reçu<small>courriel ou texto, le fichier en pièce jointe</small></span>
+              </button>}
+              <button onClick={saveReceipt} disabled={!!receiptBusy}><Download size={19}/> Enregistrer le reçu</button>
+              <button onClick={() => setReceiptFor(null)}><X size={19}/> Plus tard</button>
+            </>
+          })()}
         </div>
       </div>}
 

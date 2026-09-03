@@ -39,7 +39,7 @@ export const defaultWatermark = {
 // Où on est rendu, par type. Gardé dans les réglages : un document supprimé,
 // ou importé puis effacé, ne doit pas faire reculer la numérotation — deux
 // factures au même numéro, c'est une erreur de livres.
-export const emptyCounters = { invoice: 0, estimate: 0 }
+export const emptyCounters = { invoice: 0, estimate: 0, receipt: 0 }
 
 export const emptySettings = {
   // Rien de prérempli : l'app neuve n'appartient à personne tant que son
@@ -69,6 +69,7 @@ export const emptySettings = {
   accent: '#4353c9',
   invoicePrefix: 'INVOICE',
   estimatePrefix: 'EST',
+  receiptPrefix: 'REÇU',
   defaultNotes: '',
   paymentInstructions: '',
   // Les liens de facture (page en ligne + suivi des ouvertures) sont une
@@ -211,6 +212,40 @@ export const applyRegion = (settings, id) => {
     taxLabel2: r.taxLabel2 || '',
     taxRate2: r.taxRate2 || 0,
     taxDefault: r.taxDefault !== false
+  }
+}
+
+// Comment l'argent est entré. Écrit sur le reçu : « reçu 1 685,00 $ » ne vaut
+// pas grand-chose ; « reçu 1 685,00 $ par virement Interac le 26 août » se
+// défend devant un comptable.
+export const PAYMENT_METHODS = ['Virement Interac', 'Chèque', 'Comptant', 'Virement bancaire', 'Carte', 'Autre']
+
+// Le reçu porte son propre numéro, dans sa propre suite : REÇU0001, REÇU0002…
+export const nextReceiptNumber = settings =>
+  `${settings.receiptPrefix || 'REÇU'}${String(Number(settings.counters?.receipt || 0) + 1).padStart(4, '0')}`
+
+// Ce qu'un reçu affirme : tel montant reçu, tel jour, de telle façon, sur
+// telle facture — et ce qu'il reste à payer après ce versement-là. Le solde
+// est calculé à la date du versement, pas aujourd'hui : un reçu ne change
+// jamais après coup.
+export function receiptData(doc, paymentId) {
+  const totals = calcTotals(doc)
+  const list = doc.payments || []
+  const index = list.findIndex(p => p.id === paymentId)
+  if (index < 0) return null
+  const payment = list[index]
+  const cumul = list.slice(0, index + 1).reduce((s, p) => s + Number(p.amount || 0), 0)
+  const reste = Math.max(totals.total - cumul, 0)
+  return {
+    payment,
+    amount: Number(payment.amount || 0),
+    method: payment.method || 'Paiement',
+    date: payment.date || today(),
+    number: payment.receiptNo || '',
+    invoiceTotal: totals.total,
+    paidToDate: cumul,
+    remaining: reste,
+    settled: reste <= 0.005
   }
 }
 
