@@ -28,6 +28,12 @@ const isDeploymentHost = host => {
 export function hostNotice(host = typeof location !== 'undefined' ? location.hostname : '') {
   if (!host || host === CANONICAL_HOST || host === 'localhost' || host === '127.0.0.1') return null
   if (!/vercel\.app$/i.test(host)) return null
+
+  // Toutes les adresses Vercel autres que l'adresse canonique ont leur propre
+  // localStorage et leur propre session Supabase. Si elles sont vides, main.jsx
+  // les traite donc comme temporaires et les ramène automatiquement sur
+  // invoices-simple.vercel.app. Ça couvre autant les URLs de déploiement que
+  // les alias de branche générés par Vercel.
   return isDeploymentHost(host)
     ? {
         kind: 'deployment',
@@ -35,9 +41,9 @@ export function hostNotice(host = typeof location !== 'undefined' ? location.hos
         text: "Cette adresse est celle d'une mise à jour précise : elle change au prochain déploiement, et ce que tu entres ici reste derrière. Les factures, clients et articles sont rangés par adresse."
       }
     : {
-        kind: 'alias',
-        title: 'Autre porte de la même app',
-        text: 'Cette adresse marche, mais elle a sa propre réserve de données : ce que tu vois ici n\'est pas ce que tu vois sur l\'adresse principale.'
+        kind: 'deployment',
+        title: 'Autre adresse Vercel',
+        text: "Cette adresse est une autre porte de l'application. Elle a sa propre mémoire locale ; l'adresse principale reste la seule adresse à utiliser pour retrouver automatiquement les mêmes données après chaque redéploiement."
       }
 }
 
