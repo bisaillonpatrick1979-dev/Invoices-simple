@@ -44,9 +44,26 @@ export function useCloudSync(data, apply) {
     }
   }
 
-  // Une seule synchro à la connexion : le reste part du bouton ou de l'appui
-  // qui suit une modification, pour ne pas courir après le réseau.
+  // Une première synchro dès que la session Supabase revient.
   useEffect(() => { if (user) sync() }, [user?.id])
+
+  // Si l'ouverture a eu lieu sans réseau, on ne laisse plus l'app vide jusqu'à
+  // un clic manuel : le retour du signal relance la première synchro complète.
+  // Même chose quand on revient dans l'app après l'avoir laissée en arrière-plan
+  // — ça récupère aussi les changements faits depuis un autre appareil.
+  useEffect(() => {
+    if (!user) return
+    const onOnline = () => sync()
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') sync()
+    }
+    window.addEventListener('online', onOnline)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.removeEventListener('online', onOnline)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [user?.id])
 
   return { user, state, sync, setUser }
 }
@@ -59,7 +76,7 @@ export function CloudSection({ user, state, sync, onSignedOut }) {
   const [msg, setMsg] = useState(null)
 
   const submit = async () => {
-    if (!email.trim() || !password) return setMsg({ err: true, text: 'Courriel et mot de passe, tous les deux.' })
+    if (!email.trim() || !password) return setMsg({ err: true, text: 'Courriel ou mot de passe, tous les deux.' })
     setBusy(true)
     setMsg(null)
     try {
