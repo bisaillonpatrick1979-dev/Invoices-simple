@@ -1,9 +1,38 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Cloud, CloudOff, RefreshCw, LogOut } from 'lucide-react'
-import { calcTotals, docStatus } from './store.js'
+import { calcTotals, docStatus, load, save } from './store.js'
 import { cloud, cloudError, forgetSnapshot, onAuthChange, resendConfirmation, signIn, signOut, signUp, syncAll } from './cloud.js'
 
 const totalsOf = doc => ({ ...calcTotals(doc), status: docStatus(doc) })
+
+// Les données locales appartiennent au dernier compte qui les a synchronisées.
+// Sans cette petite étiquette, se déconnecter de A puis connecter B sur le même
+// téléphone pourrait faire monter les données locales de A dans le compte B.
+const OWNER_KEY = 'is_cloud_owner'
+const ACCOUNT_DATA_KEYS = [
+  'is_settings', 'is_clients', 'is_items', 'is_expenses', 'is_docs',
+  'is_open_doc', 'is_share_state', 'is_share_seen',
+  // anciennes versions : si elles restent, migrateOldData pourrait les faire
+  // réapparaître après le nettoyage d'un changement de compte.
+  'inv_invoices', 'inv_company', 'inv_clients'
+]
+
+function prepareAccount(userId) {
+  const owner = load(OWNER_KEY, '')
+  if (!owner) {
+    save(OWNER_KEY, userId)
+    return false
+  }
+  if (owner === userId) return false
+
+  // Un autre compte arrive sur cet appareil : on repart d'une mémoire locale
+  // vierge avant toute requête de synchro. Ses propres données redescendront du
+  // nuage après le rechargement. Le snapshot de l'ancien compte part aussi.
+  for (const key of ACCOUNT_DATA_KEYS) localStorage.removeItem(key)
+  forgetSnapshot()
+  save(OWNER_KEY, userId)
+  return true
+}
 
 // Toute la synchro passe par ici : l'écran de réglages et le déclenchement
 // automatique après une modification partagent le même état.
@@ -26,6 +55,7 @@ export function useCloudSync(data, apply) {
   // doit montrer ce que le serveur contient, pas ce que la mémoire du
   // navigateur a retenu. Les fois suivantes, seul ce qui a bougé circule.
   const firstRef = useRef(true)
+  const accountRef = useRef('')
 
   const sync = async () => {
     if (runningRef.current || !user) return
@@ -44,8 +74,24 @@ export function useCloudSync(data, apply) {
     }
   }
 
-  // Une première synchro dès que la session Supabase revient.
-  useEffect(() => { if (user) sync() }, [user?.id])
+  // Une première synchro dès que la session Supabase revient. Si l'identité a
+  // changé, on sépare d'abord les données locales des deux comptes puis on
+  // recharge : aucune ligne de l'ancien compte n'a le temps de partir au nuage.
+  useEffect(() => {
+    const id = user?.id || ''
+    if (!id) {
+      accountRef.current = ''
+      return
+    }
+    if (accountRef.current !== id) firstRef.current = true
+    accountRef.current = id
+
+    if (prepareAccount(id)) {
+      window.location.reload()
+      return
+    }
+    sync()
+  }, [user?.id])
 
   // Si l'ouverture a eu lieu sans réseau, on ne laisse plus l'app vide jusqu'à
   // un clic manuel : le retour du signal relance la première synchro complète.
@@ -76,7 +122,7 @@ export function CloudSection({ user, state, sync, onSignedOut }) {
   const [msg, setMsg] = useState(null)
 
   const submit = async () => {
-    if (!email.trim() || !password) return setMsg({ err: true, text: 'Courriel ou mot de passe, tous les deux.' })
+    if (!email.trim() || !password) return setMsg({ err: true, text: 'Courriel et mot de passe, tous les deux.' })
     setBusy(true)
     setMsg(null)
     try {
@@ -112,9 +158,9 @@ export function CloudSection({ user, state, sync, onSignedOut }) {
     setBusy(true)
     try {
       await signOut()
-      // L'instantané décrit ce que CE compte avait synchronisé : le garder
-      // ferait passer les données du prochain compte pour des suppressions.
-      forgetSnapshot()
+      // On garde le snapshot et l'identité locale du compte : si la même
+      // personne se reconnecte, on sait ce qui a changé pendant son absence.
+      // Si un autre compte se connecte, prepareAccount nettoie avant la synchro.
       onSignedOut?.()
     } catch (e) {
       setMsg({ err: true, text: cloudError(e) })
