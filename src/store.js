@@ -82,6 +82,11 @@ export const emptySettings = {
   // confirmation qu'il faut penser à envoyer n'est pas une confirmation.
   autoReceiptEmail: true,
   senderEmail: '',
+  // Une copie de chaque confirmation dans sa propre boîte : c'est la preuve
+  // qu'elle est bien partie, et elle se classe avec le reste de la
+  // comptabilité. Vide = l'adresse d'entreprise.
+  receiptCopySelf: true,
+  receiptCopyTo: '',
   // le plus haut numéro déjà utilisé, par type
   counters: { ...emptyCounters }
 }
@@ -229,6 +234,18 @@ export const PAYMENT_METHODS = ['Virement Interac', 'Chèque', 'Comptant', 'Vire
 // Le reçu porte son propre numéro, dans sa propre suite : REÇU0001, REÇU0002…
 export const nextReceiptNumber = settings =>
   `${settings.receiptPrefix || 'REÇU'}${String(Number(settings.counters?.receipt || 0) + 1).padStart(4, '0')}`
+
+export const isEmail = v => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v || '').trim())
+
+// À qui part la copie de la confirmation de paiement. L'entrepreneur veut la
+// même preuve que son client : reçue dans sa propre boîte, elle se classe avec
+// le reste et dit noir sur blanc que le message est bien parti. À défaut
+// d'adresse dédiée, c'est le courriel de l'entreprise.
+export const receiptCopyAddress = settings => {
+  if (settings?.receiptCopySelf === false) return ''
+  const a = String(settings?.receiptCopyTo || settings?.business?.email || '').trim()
+  return isEmail(a) ? a : ''
+}
 
 // Ce qu'un reçu affirme : tel montant reçu, tel jour, de telle façon, sur
 // telle facture — et ce qu'il reste à payer après ce versement-là. Le solde

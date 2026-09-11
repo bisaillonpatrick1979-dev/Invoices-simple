@@ -7,7 +7,7 @@ import {
 import {
   buildEmailBody, buildSmsBody, calcTotals, contactLabel, docStatus, duplicateNumber, fmtDate, fmtStamp,
   isRevised, lineTotal, markSent, money, newLine, nextReceiptNumber, parseNum,
-  PAYMENT_METHODS, receiptData, SENT_EVENT, suggestItems, uid, today, emptyClient,
+  PAYMENT_METHODS, receiptCopyAddress, receiptData, SENT_EVENT, suggestItems, uid, today, emptyClient,
   withEvent, UNITS
 } from './store.js'
 import { canSharePdf, downloadPdf, downloadReceipt, receiptBase64, receiptFileName, sharePdf, shareReceipt } from './pdf.js'
@@ -135,9 +135,13 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
       [b.phone, b.email].filter(Boolean).join(' — ') || null
     ].filter(x => x !== null).join('\n')
 
-    persist(withEvent(paymentDoc, `Confirmation de paiement préparée par courriel (${email})`))
+    // La copie part sur le même message : l'entrepreneur a dans sa boîte
+    // exactement ce que son client a reçu.
+    const copie = receiptCopyAddress(settings)
+    const cc = copie && copie.toLowerCase() !== email.toLowerCase() ? `&cc=${encodeURIComponent(copie)}` : ''
+    persist(withEvent(paymentDoc, `Confirmation de paiement préparée par courriel (${email}${cc ? ` + copie à ${copie}` : ''})`))
     if (closeReceipt) setReceiptFor(null)
-    window.location.href = `mailto:${email}?subject=${subject}&body=${encodeURIComponent(body)}`
+    window.location.href = `mailto:${email}?subject=${subject}${cc}&body=${encodeURIComponent(body)}`
     return true
   }
 
@@ -325,6 +329,10 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
   const [receiptFor, setReceiptFor] = useState(null)       // paiement à remettre
   const [receiptBusy, setReceiptBusy] = useState('')
 
+  // L'adresse qui reçoit le double de la confirmation, affichée avant qu'on
+  // appuie : on doit savoir qui va recevoir quoi avant, pas après.
+  const copiePaiement = receiptCopyAddress(settings)
+
   const openPayment = () => {
     if (totals.balance <= 0) return
     setPayOpenSheet({ amount: Number(totals.balance.toFixed(2)), method: PAYMENT_METHODS[0] })
@@ -340,6 +348,7 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
     const pdf = await receiptBase64(settings, saved, r.payment.id)
     await sendReceiptEmail({
       to: destinataire,
+      cc: receiptCopyAddress(settings),
       from: String(settings.senderEmail || '').trim(),
       replyTo: String(settings.business?.email || '').trim(),
       subject: `Paiement reçu — facture ${saved.number} · ${money(r.amount)}`,
@@ -884,12 +893,19 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
             <p className="hint small-note">
               Solde après ce paiement : <b>{money(Math.max(totals.balance - Number(payOpenSheet.amount || 0), 0))}</b>
             </p>
-            {doc.client.email?.trim() && <p className="hint small-note">
-              La confirmation de paiement sera préparée pour <b>{doc.client.email.trim()}</b>.
-            </p>}
+            {doc.client.email?.trim()
+              ? <p className="hint small-note">
+                  La confirmation de paiement part à <b>{doc.client.email.trim()}</b>
+                  {copiePaiement && copiePaiement.toLowerCase() !== doc.client.email.trim().toLowerCase()
+                    ? <>, avec une copie à <b>{copiePaiement}</b></>
+                    : null}, le reçu en pièce jointe.
+                </p>
+              : <p className="hint small-note">
+                  Aucun courriel au dossier pour ce client : le reçu restera à remettre à la main.
+                </p>}
           </div>
           <button className="primary wide" onClick={confirmPayment}>
-            <Check size={17}/> {doc.client.email?.trim() ? 'Enregistrer + confirmation courriel' : 'Enregistrer et faire le reçu'}
+            <Check size={17}/> {doc.client.email?.trim() ? 'OK — encaisser et confirmer' : 'OK — encaisser et faire le reçu'}
           </button>
           <button className="link-btn centered" onClick={() => setPayOpenSheet(null)}>Annuler</button>
         </div>
@@ -909,7 +925,10 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
               </p>
               {receiptFor.auto === 'envoi' && <p className="hint small-note padded">Envoi de la confirmation au client…</p>}
               {receiptFor.auto === 'envoyé' && <p className="track-note padded">
-                <CheckCheck size={15}/> Confirmation envoyée à {receiptFor.doc.client?.email}, reçu joint.
+                <CheckCheck size={15}/> Confirmation envoyée à {receiptFor.doc.client?.email}
+                {copiePaiement && copiePaiement.toLowerCase() !== String(receiptFor.doc.client?.email || '').toLowerCase()
+                  ? ` (copie à ${copiePaiement})`
+                  : ''}, reçu joint.
               </p>}
               {receiptFor.auto === 'replié' && <p className="track-warn">
                 Envoi automatique impossible ({receiptFor.erreur}) — l'app de courriel a été ouverte avec le message déjà écrit.

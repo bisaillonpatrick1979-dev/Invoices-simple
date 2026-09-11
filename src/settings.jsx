@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { ArrowLeft, Cloud, Eye, HardDriveDownload, HardDriveUpload, Hash, Link2, Mail, Sparkles, Trash2 } from 'lucide-react'
 import {
   applyRegion, countersFromDocs, defaultWatermark, emptySettings, nextNumber,
-  numberRank, readImageFile, REGIONS, sampleDocument
+  numberRank, readImageFile, receiptCopyAddress, REGIONS, sampleDocument
 } from './store.js'
 import { AI_PROVIDERS, aiProvider, askAi } from './ai.js'
 import { applyBackup, backupCounts, downloadBackup, readBackupFile } from './backup.js'
@@ -373,6 +373,30 @@ export function SettingsScreen({ settings, setSettings, cloud, data, onBack }) {
           Les réponses du client iront à <b>{settings.business?.email || 'ton courriel d’entreprise'}</b>.
           {' '}Sans service d'envoi branché, l'app te le dira et le reçu restera à envoyer à la main.
         </p>
+
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={settings.receiptCopySelf !== false}
+            onChange={e => setSettings({ ...settings, receiptCopySelf: e.target.checked })}
+          />
+          M'envoyer une copie de chaque confirmation
+        </label>
+        {settings.receiptCopySelf !== false && <>
+          <Field label="Adresse où recevoir la copie">
+            <input
+              type="email"
+              placeholder={settings.business?.email || 'ton.adresse@gmail.com'}
+              value={settings.receiptCopyTo || ''}
+              onChange={e => setSettings({ ...settings, receiptCopyTo: e.target.value })}
+            />
+          </Field>
+          <p className="hint small-note">
+            {receiptCopyAddress(settings)
+              ? <>La copie ira à <b>{receiptCopyAddress(settings)}</b> — le même message que le client, reçu compris.</>
+              : <>Aucune adresse valide pour l'instant : inscris-la ici, ou remplis le courriel de l'entreprise plus haut.</>}
+          </p>
+        </>}
       </div>
 
       {/* Le chemin normal, c'est le PDF en pièce jointe. Le lien de suivi est

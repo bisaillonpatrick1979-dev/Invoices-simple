@@ -567,6 +567,24 @@ button.primary.wide { width: 100%; margin-top: 12px; }
 .send-menu button:hover { background: #f4f5f8; }
 .send-menu-sep { height: 1px; background: var(--line); margin: 2px 0; }
 
+/* Un bouton d'action garde sa couleur à l'intérieur d'une feuille.
+   `.send-menu button` remet le fond à zéro pour les entrées de menu ; il a
+   exactement le même poids que `button.primary` et vient après lui, donc il
+   gagnait — le fond bleu tombait, le texte blanc restait, et le bouton de
+   confirmation devenait blanc sur blanc. Invisible : on ne voyait plus que
+   « Annuler ». */
+.send-menu button.primary {
+  background: var(--blue);
+  color: #fff;
+  border-radius: 12px;
+  justify-content: center;
+  text-align: center;
+  font-weight: 700;
+}
+.send-menu button.primary:hover { background: var(--blue-dark); }
+.send-menu button.primary:disabled { background: #9aa4d8; }
+.send-menu button.link-btn { justify-content: center; text-align: center; }
+
 /* Aperçu plein écran du PDF */
 .paper-modal {
   position: fixed;
