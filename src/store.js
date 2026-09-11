@@ -76,6 +76,10 @@ export const emptySettings = {
   // option, pas le chemin normal : par défaut, une facture s'envoie avec son
   // PDF en pièce jointe, comme un papier.
   trackingLinks: false,
+  // Confirmation de paiement postée par le serveur, sans toucher au téléphone.
+  // Demande une adresse d'expédition vérifiée chez le service d'envoi.
+  autoReceiptEmail: false,
+  senderEmail: '',
   // le plus haut numéro déjà utilisé, par type
   counters: { ...emptyCounters }
 }

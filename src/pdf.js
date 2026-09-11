@@ -507,6 +507,19 @@ export async function downloadReceipt(settings, doc, paymentId) {
   saveBlob(pdf.output('blob'), receiptFileName(doc, receiptData(doc, paymentId)))
 }
 
+// Le reçu tel qu'il sera joint au courriel : le même PDF que celui qu'on
+// télécharge, encodé pour voyager dans une requête.
+export async function receiptBase64(settings, doc, paymentId) {
+  const pdf = await buildReceiptPdf(settings, doc, paymentId)
+  const octets = new Uint8Array(pdf.output('arraybuffer'))
+  let binaire = ''
+  const PAS = 0x8000   // par tranches : une chaîne de 100 000 arguments fait sauter l'appel
+  for (let i = 0; i < octets.length; i += PAS) {
+    binaire += String.fromCharCode.apply(null, octets.subarray(i, i + PAS))
+  }
+  return btoa(binaire)
+}
+
 export async function shareReceipt(settings, doc, paymentId, { title, text }) {
   const file = await receiptFile(settings, doc, paymentId)
   if (!navigator.canShare?.({ files: [file] })) throw new Error('nofiles')

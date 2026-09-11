@@ -10,11 +10,12 @@ import {
   PAYMENT_METHODS, receiptData, SENT_EVENT, suggestItems, uid, today, emptyClient,
   withEvent, UNITS
 } from './store.js'
-import { canSharePdf, downloadPdf, downloadReceipt, sharePdf, shareReceipt } from './pdf.js'
+import { canSharePdf, downloadPdf, downloadReceipt, receiptBase64, receiptFileName, sharePdf, shareReceipt } from './pdf.js'
 import {
   agoFr, channelLabel, channelsOf, fmtViewedAt, publishShare, restoreShare,
   revokeShare, seenCurrent, shareUrl, tokenFor
 } from './share.js'
+import { sendReceiptEmail } from './cloud.js'
 import { AppBar, NumField } from './lists.jsx'
 
 const Field = ({ label, children }) => <label className="field"><span>{label}</span>{children}</label>
@@ -292,6 +293,37 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
     setPayOpenSheet({ amount: Number(totals.balance.toFixed(2)), method: PAYMENT_METHODS[0] })
   }
 
+  // La confirmation automatique : postée par le serveur, sans toucher au
+  // téléphone. Elle ne remplace pas le reçu à remettre en main — elle arrive
+  // avant, pendant que le client a encore le virement en tête.
+  const autoConfirm = async saved => {
+    const destinataire = String(saved.client?.email || '').trim()
+    if (!settings.autoReceiptEmail || !destinataire) return null
+    const r = receiptData(saved, saved.payments[saved.payments.length - 1].id)
+    const pdf = await receiptBase64(settings, saved, r.payment.id)
+    await sendReceiptEmail({
+      to: destinataire,
+      from: String(settings.senderEmail || '').trim(),
+      replyTo: String(settings.business?.email || '').trim(),
+      subject: `Paiement reçu — facture ${saved.number} · ${money(r.amount)}`,
+      text: [
+        `Bonjour ${saved.client?.name || ''},`.trim(),
+        '',
+        `Nous confirmons avoir reçu ${money(r.amount)} (${r.method}) le ${fmtDate(r.date)} pour la facture ${saved.number}.`,
+        r.settled ? 'Cette facture est payée en entier. Rien ne reste dû.' : `Il reste ${money(r.remaining)} à payer sur cette facture.`,
+        '',
+        `Le reçu ${r.number} est joint à ce message.`,
+        '',
+        'Merci,',
+        settings.business?.name || '',
+        settings.business?.phone || ''
+      ].filter(x => x !== null && x !== undefined).join('\n'),
+      pdfBase64: pdf,
+      filename: receiptFileName(saved, r)
+    })
+    return r
+  }
+
   const confirmPayment = () => {
     const montant = Number(payOpenSheet?.amount || 0)
     if (!montant || montant <= 0) return
@@ -305,7 +337,19 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
     // le compteur de reçus avance, comme celui des factures
     onSettings?.({ ...settings, counters: { ...(settings.counters || {}), receipt: Number(settings.counters?.receipt || 0) + 1 } })
     setPayOpenSheet(null)
-    setReceiptFor({ doc: saved, paymentId: paiement.id })
+    setReceiptFor({ doc: saved, paymentId: paiement.id, auto: settings.autoReceiptEmail && !!saved.client?.email ? 'envoi' : '' })
+
+    // On tente l'envoi automatique sans bloquer l'écran : le reçu est déjà
+    // prêt à remettre à la main si le serveur ne suit pas.
+    if (settings.autoReceiptEmail && saved.client?.email) {
+      autoConfirm(saved)
+        .then(r => {
+          if (!r) return
+          persist(withEvent(saved, `Confirmation de paiement envoyée à ${saved.client.email}`))
+          setReceiptFor(f => (f && f.paymentId === paiement.id ? { ...f, auto: 'envoyé' } : f))
+        })
+        .catch(e => setReceiptFor(f => (f && f.paymentId === paiement.id ? { ...f, auto: 'raté', erreur: String(e?.message || e) } : f)))
+    }
   }
 
   const sendReceipt = async () => {
@@ -812,6 +856,13 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
                 Reçu <b>{r.number}</b> · {money(r.amount)} — {r.method}, le {fmtDate(r.date)}.
                 {r.settled ? ' Rien ne reste dû.' : ` Il reste ${money(r.remaining)}.`}
               </p>
+              {receiptFor.auto === 'envoi' && <p className="hint small-note padded">Envoi de la confirmation au client…</p>}
+              {receiptFor.auto === 'envoyé' && <p className="track-note padded">
+                <CheckCheck size={15}/> Confirmation envoyée à {receiptFor.doc.client?.email}, reçu joint.
+              </p>}
+              {receiptFor.auto === 'raté' && <p className="track-warn">
+                La confirmation automatique n'est pas partie : {receiptFor.erreur} — remets le reçu à la main ci-dessous.
+              </p>}
               {shareable && <button onClick={sendReceipt} disabled={!!receiptBusy}>
                 <Share2 size={19}/> <span>Envoyer le reçu<small>courriel ou texto, le fichier en pièce jointe</small></span>
               </button>}

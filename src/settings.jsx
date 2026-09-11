@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { ArrowLeft, Cloud, Eye, HardDriveDownload, HardDriveUpload, Hash, Link2, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowLeft, Cloud, Eye, HardDriveDownload, HardDriveUpload, Hash, Link2, Mail, Sparkles, Trash2 } from 'lucide-react'
 import {
   applyRegion, countersFromDocs, defaultWatermark, emptySettings, nextNumber,
   numberRank, readImageFile, REGIONS, sampleDocument
@@ -342,6 +342,36 @@ export function SettingsScreen({ settings, setSettings, cloud, data, onBack }) {
           Prochains numéros : <b>{nextNumber(docs, 'invoice', settings.invoicePrefix, counters.invoice)}</b>
           {' '}et <b>{nextNumber(docs, 'estimate', settings.estimatePrefix, counters.estimate)}</b>.
           {floorTooLow && <><br/><b className="warn-text">Impossible de descendre plus bas : {floorTooLow} est déjà utilisé.</b></>}
+        </p>
+      </div>
+
+      {/* Une facture passée à « payée » vaut une confirmation au client, tout
+          de suite. Postée par le serveur : le téléphone n'a rien à faire. */}
+      <div className="edit-card padded">
+        <h2 className="section-title"><Mail size={17}/> Confirmation automatique de paiement</h2>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={!!settings.autoReceiptEmail}
+            onChange={e => setSettings({ ...settings, autoReceiptEmail: e.target.checked })}
+          />
+          Confirmer au client dès qu'une facture est payée
+        </label>
+        <p className="hint small-note">
+          Le client reçoit un courriel — « nous confirmons avoir reçu 985,00 $ » — avec le reçu en pièce jointe,
+          sans que tu touches à rien. Le reçu reste aussi disponible à remettre à la main.
+        </p>
+        <Field label="Adresse d'expédition (vérifiée chez le service d'envoi)">
+          <input
+            type="email"
+            placeholder="facturation@tondomaine.ca"
+            value={settings.senderEmail || ''}
+            onChange={e => setSettings({ ...settings, senderEmail: e.target.value })}
+          />
+        </Field>
+        <p className="hint small-note">
+          Les réponses du client iront à <b>{settings.business?.email || 'ton courriel d’entreprise'}</b>.
+          {' '}Sans service d'envoi branché, l'app te le dira et le reçu restera à envoyer à la main.
         </p>
       </div>
 

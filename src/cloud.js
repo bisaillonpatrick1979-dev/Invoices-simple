@@ -86,6 +86,31 @@ export const resendConfirmation = email => cloud().auth.resend({
 })
 export const signOut = () => cloud().auth.signOut()
 
+// Poster une confirmation de paiement au client, par le serveur.
+//
+// C'est la seule façon qu'un envoi soit vraiment automatique : le navigateur,
+// lui, ne sait qu'ouvrir l'app de courriel et attendre un doigt.
+export async function sendReceiptEmail(message) {
+  const db = cloud()
+  if (!db) throw new Error("La sauvegarde infonuagique n'est pas configurée.")
+  const { data: { session } } = await db.auth.getSession()
+  if (!session) throw new Error('Connecte-toi : la confirmation part depuis ton compte.')
+
+  const { url, key } = cloudConfig()
+  const res = await fetch(`${url}/functions/v1/send-receipt`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      apikey: key,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(message)
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok || body.error) throw new Error(body.message || body.error || `Le serveur a refusé (${res.status}).`)
+  return body
+}
+
 // Supprimer le compte et tout ce qu'il contient.
 //
 // Un magasin d'applications refuse une app à comptes qui n'offre pas ce

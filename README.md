@@ -204,6 +204,30 @@ Le document dit tout ce qu'un comptable demande :
 
 Un paiement partiel donne son propre reçu : la 700 $ du 20 août dit « il reste 985,00 $ », celui du solde dit « rien ne reste dû ». Chaque reçu se remet en main autant de fois qu'il le faut — même numéro, même contenu, depuis la liste des paiements ou le bouton **Remettre le reçu du dernier paiement**.
 
+### Confirmation automatique au client
+
+Une facture qui passe à « payée » vaut une confirmation tout de suite, pendant que le client a encore le virement en tête. **Réglages → Confirmation automatique de paiement** : coché, le client reçoit, sans que tu touches à rien :
+
+> Objet : **Paiement reçu — facture INVOICE0001 · 1 685,00 $**
+>
+> Bonjour Labelle exteriors ltd,
+>
+> Nous confirmons avoir reçu 1 685,00 $ (Virement Interac) le 11 septembre 2026 pour la facture INVOICE0001.
+> Cette facture est payée en entier. Rien ne reste dû.
+>
+> Le reçu REÇU0001 est joint à ce message.
+
+Le reçu en PDF est joint, et les réponses du client arrivent à ton courriel d'entreprise.
+
+**Pourquoi ça demande une installation.** Un téléphone ne peut pas poster un courriel tout seul : il ouvre Gmail et attend un doigt. Pour que ce soit vraiment automatique, c'est un serveur qui poste. Il faut donc, une fois :
+
+1. un compte chez un service d'envoi (Resend fait l'affaire, gratuit jusqu'à 3 000 courriels par mois) ;
+2. **un domaine vérifié** chez ce service — c'est lui qui autorise l'adresse d'expédition. Sans domaine vérifié, le service refuse d'écrire à tes clients, et c'est normal : sans ça, n'importe qui enverrait du courrier au nom de n'importe qui ;
+3. la clé du service posée dans Supabase (Edge Functions → Secrets, `RESEND_API_KEY`) ;
+4. l'adresse d'expédition inscrite dans les réglages de l'app.
+
+Tant que ce n'est pas fait, **rien ne casse** : l'app le dit en clair sur le panneau du reçu (« le service d'envoi n'est pas branché »), et le reçu reste là, à remettre à la main comme avant.
+
 ## Numérotation : reprendre là où tu es rendu
 
 L'app retient **le plus haut numéro déjà utilisé**, pour les factures comme pour les devis, et donne toujours le suivant.
