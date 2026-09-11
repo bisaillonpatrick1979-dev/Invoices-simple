@@ -104,6 +104,43 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
     setSendOpen(false)
   }
 
+  // Confirmation de paiement par courriel. Le navigateur ne peut pas envoyer
+  // un courriel silencieusement sans service externe : il ouvre donc l'app de
+  // courriel avec tout déjà rempli. L'historique dit « préparée », pas
+  // « envoyée », parce que l'utilisateur peut encore annuler dans Gmail.
+  const sendPaymentEmail = (paymentDoc, paymentId, closeReceipt = false) => {
+    const email = paymentDoc.client?.email?.trim()
+    if (!email) {
+      setShareError("Le paiement est enregistré, mais aucun courriel n'est inscrit au client. Ajoute son adresse puis rouvre le reçu pour préparer la confirmation.")
+      return false
+    }
+    const r = receiptData(paymentDoc, paymentId)
+    if (!r) {
+      setShareError('Ce paiement est introuvable : la confirmation ne peut pas être préparée.')
+      return false
+    }
+    const b = settings.business || {}
+    const clientName = String(paymentDoc.client?.name || '').trim()
+    const subject = encodeURIComponent(`Paiement reçu — ${paymentDoc.number}${b.name ? ` — ${b.name}` : ''}`)
+    const body = [
+      clientName ? `Bonjour ${clientName},` : 'Bonjour,',
+      '',
+      `Nous confirmons avoir reçu votre paiement de ${money(r.amount)} le ${fmtDate(r.date)} par ${r.method}, pour la facture ${paymentDoc.number}.`,
+      r.number ? `Numéro de reçu : ${r.number}.` : null,
+      '',
+      r.settled ? 'La facture est maintenant payée en entier. Solde : 0,00 $.' : `Solde restant : ${money(r.remaining)}.`,
+      '',
+      'Merci.',
+      b.name || null,
+      [b.phone, b.email].filter(Boolean).join(' — ') || null
+    ].filter(x => x !== null).join('\n')
+
+    persist(withEvent(paymentDoc, `Confirmation de paiement préparée par courriel (${email})`))
+    if (closeReceipt) setReceiptFor(null)
+    window.location.href = `mailto:${email}?subject=${subject}&body=${encodeURIComponent(body)}`
+    return true
+  }
+
   const sendSms = () => {
     if (!doc.client.phone?.trim()) return alert('Ajoute un numéro de téléphone au client avant d’envoyer par texto.')
     const saved = persist(withEvent(markSent(doc), sendLabel('Envoyée par texto')))
@@ -337,18 +374,29 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
     // le compteur de reçus avance, comme celui des factures
     onSettings?.({ ...settings, counters: { ...(settings.counters || {}), receipt: Number(settings.counters?.receipt || 0) + 1 } })
     setPayOpenSheet(null)
-    setReceiptFor({ doc: saved, paymentId: paiement.id, auto: settings.autoReceiptEmail && !!saved.client?.email ? 'envoi' : '' })
+    // Trois cas, du meilleur au moins bon, et jamais rien d'abandonné :
+    //  1. service d'envoi branché → le serveur poste, reçu joint, sans un doigt
+    //  2. pas branché ou refusé    → l'app de courriel s'ouvre, tout déjà écrit
+    //  3. aucun courriel au dossier → le reçu reste à remettre à la main
+    const parCourriel = !!saved.client?.email?.trim()
+    const auto = settings.autoReceiptEmail !== false && parCourriel
+    setReceiptFor({ doc: saved, paymentId: paiement.id, auto: auto ? 'envoi' : '' })
 
-    // On tente l'envoi automatique sans bloquer l'écran : le reçu est déjà
-    // prêt à remettre à la main si le serveur ne suit pas.
-    if (settings.autoReceiptEmail && saved.client?.email) {
+    if (auto) {
       autoConfirm(saved)
         .then(r => {
           if (!r) return
           persist(withEvent(saved, `Confirmation de paiement envoyée à ${saved.client.email}`))
           setReceiptFor(f => (f && f.paymentId === paiement.id ? { ...f, auto: 'envoyé' } : f))
         })
-        .catch(e => setReceiptFor(f => (f && f.paymentId === paiement.id ? { ...f, auto: 'raté', erreur: String(e?.message || e) } : f)))
+        .catch(e => {
+          // Le serveur n'a pas pu : on ouvre l'app de courriel plutôt que de
+          // laisser le client sans nouvelle. Un doigt vaut mieux que rien.
+          setReceiptFor(f => (f && f.paymentId === paiement.id ? { ...f, auto: 'replié', erreur: String(e?.message || e) } : f))
+          sendPaymentEmail(saved, paiement.id)
+        })
+    } else if (!parCourriel) {
+      setShareError("Paiement enregistré. Ajoute un courriel au client pour lui envoyer la confirmation de réception.")
     }
   }
 
@@ -836,9 +884,12 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
             <p className="hint small-note">
               Solde après ce paiement : <b>{money(Math.max(totals.balance - Number(payOpenSheet.amount || 0), 0))}</b>
             </p>
+            {doc.client.email?.trim() && <p className="hint small-note">
+              La confirmation de paiement sera préparée pour <b>{doc.client.email.trim()}</b>.
+            </p>}
           </div>
           <button className="primary wide" onClick={confirmPayment}>
-            <Check size={17}/> Enregistrer et faire le reçu
+            <Check size={17}/> {doc.client.email?.trim() ? 'Enregistrer + confirmation courriel' : 'Enregistrer et faire le reçu'}
           </button>
           <button className="link-btn centered" onClick={() => setPayOpenSheet(null)}>Annuler</button>
         </div>
@@ -860,9 +911,12 @@ export function DocumentEditor({ doc, settings, clients, items, docs = [], share
               {receiptFor.auto === 'envoyé' && <p className="track-note padded">
                 <CheckCheck size={15}/> Confirmation envoyée à {receiptFor.doc.client?.email}, reçu joint.
               </p>}
-              {receiptFor.auto === 'raté' && <p className="track-warn">
-                La confirmation automatique n'est pas partie : {receiptFor.erreur} — remets le reçu à la main ci-dessous.
+              {receiptFor.auto === 'replié' && <p className="track-warn">
+                Envoi automatique impossible ({receiptFor.erreur}) — l'app de courriel a été ouverte avec le message déjà écrit.
               </p>}
+              <button onClick={() => sendPaymentEmail(receiptFor.doc, receiptFor.paymentId, true)} disabled={!!receiptBusy}>
+                <Mail size={19}/> <span>Confirmation par courriel<small>{receiptFor.doc.client?.email?.trim() || 'aucune adresse au dossier'}</small></span>
+              </button>
               {shareable && <button onClick={sendReceipt} disabled={!!receiptBusy}>
                 <Share2 size={19}/> <span>Envoyer le reçu<small>courriel ou texto, le fichier en pièce jointe</small></span>
               </button>}

@@ -226,7 +226,15 @@ Le reçu en PDF est joint, et les réponses du client arrivent à ton courriel d
 3. la clé du service posée dans Supabase (Edge Functions → Secrets, `RESEND_API_KEY`) ;
 4. l'adresse d'expédition inscrite dans les réglages de l'app.
 
-Tant que ce n'est pas fait, **rien ne casse** : l'app le dit en clair sur le panneau du reçu (« le service d'envoi n'est pas branché »), et le reçu reste là, à remettre à la main comme avant.
+**Tant que ce n'est pas fait, la confirmation part quand même** : l'app ouvre ton application de courriel avec le message déjà écrit et l'adresse du client remplie — il ne reste qu'à appuyer sur Envoyer. Le panneau du reçu dit laquelle des deux voies a servi, et le reçu reste là, à remettre à la main.
+
+Trois cas, du meilleur au moins bon, et jamais rien d'abandonné :
+
+| Situation | Ce qui se passe |
+|---|---|
+| Service d'envoi branché | Le serveur poste la confirmation, reçu joint. Aucun geste. |
+| Pas branché, ou refusé | Ton app de courriel s'ouvre, tout est déjà écrit. Un appui. |
+| Aucun courriel au dossier client | L'app le dit, et le reçu reste à remettre à la main. |
 
 ## Numérotation : reprendre là où tu es rendu
 
